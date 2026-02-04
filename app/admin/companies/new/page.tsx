@@ -140,8 +140,10 @@ export default function NewCompanyPage() {
                                 <div>
                                     <span className="text-sm font-medium text-slate-900 block capitalize">{module.name}</span>
                                     {module.description && <span className="text-xs text-slate-500 block">{module.description}</span>}
-                                    {module.monthly_price_adder > 0 && (
-                                        <span className="text-xs font-semibold text-emerald-600 block mt-1">+ ${module.monthly_price_adder} / mes</span>
+                                    {(module.monthly_price_adder || 0) > 0 && (
+                                        <span className="text-xs font-semibold text-emerald-600 block mt-1">
+                                            + ${module.monthly_price_adder} / mes
+                                        </span>
                                     )}
                                 </div>
                             </label>

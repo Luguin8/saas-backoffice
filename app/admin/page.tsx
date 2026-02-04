@@ -1,16 +1,41 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Building, Plus, CreditCard, Users, ArrowRight } from 'lucide-react';
+import { Building, Plus, CreditCard, Users, ArrowRight, Loader2 } from 'lucide-react';
+import { fetchDashboardStats, type DashboardStats } from '@/lib/services/companies';
 
 export default function AdminDashboard() {
+    const [stats, setStats] = useState<DashboardStats>({
+        activeCompanies: 0,
+        mrr: 0,
+        totalUsers: 0
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchDashboardStats()
+            .then(setStats)
+            .catch((err) => console.error("Error cargando estadísticas:", err))
+            .finally(() => setLoading(false));
+    }, []);
+
+    // Formateador de moneda
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
     return (
         <div className="max-w-7xl mx-auto p-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900">Panel de Control</h1>
-                    <p className="text-slate-500">Bienvenido, Superadmin. Aquí tienes el resumen de tu SaaS.</p>
+                    <p className="text-slate-500">Bienvenido, Superadmin. Aquí tienes el resumen real de tu SaaS.</p>
                 </div>
                 <Link
                     href="/admin/companies/new"
@@ -21,8 +46,10 @@ export default function AdminDashboard() {
                 </Link>
             </div>
 
-            {/* KPIs / Métricas Rápidas (Hardcodeadas por ahora, luego las conectamos) */}
+            {/* KPIs / Métricas Reales */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+
+                {/* Card 1: Empresas */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
@@ -30,11 +57,16 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-slate-500">Empresas Activas</p>
-                            <h3 className="text-2xl font-bold text-slate-900">12</h3>
+                            {loading ? (
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300 mt-1" />
+                            ) : (
+                                <h3 className="text-2xl font-bold text-slate-900">{stats.activeCompanies}</h3>
+                            )}
                         </div>
                     </div>
                 </div>
 
+                {/* Card 2: MRR */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -42,11 +74,16 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-slate-500">MRR (Mensual)</p>
-                            <h3 className="text-2xl font-bold text-slate-900">$450.000</h3>
+                            {loading ? (
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300 mt-1" />
+                            ) : (
+                                <h3 className="text-2xl font-bold text-slate-900">{formatCurrency(stats.mrr)}</h3>
+                            )}
                         </div>
                     </div>
                 </div>
 
+                {/* Card 3: Usuarios */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
@@ -54,24 +91,27 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-slate-500">Usuarios Totales</p>
-                            <h3 className="text-2xl font-bold text-slate-900">84</h3>
+                            {loading ? (
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300 mt-1" />
+                            ) : (
+                                <h3 className="text-2xl font-bold text-slate-900">{stats.totalUsers}</h3>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Accesos Directos */}
+            {/* Accesos Directos (Sin cambios lógicos, solo visuales) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Tarjeta: Gestión de Empresas */}
                 <Link href="/admin/companies" className="group block">
                     <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all h-full border-l-4 border-l-slate-900">
                         <div className="flex justify-between items-start">
                             <div>
                                 <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                    Listado de Empresas (Vista Excel)
+                                    Listado de Empresas
                                 </h3>
                                 <p className="text-slate-500 leading-relaxed">
-                                    Accede a la tabla detallada con deudas, módulos activados, usuarios y estado de cada cliente.
+                                    Accede a la tabla detallada con deudas, módulos activados y estado de cada cliente.
                                 </p>
                             </div>
                             <ArrowRight className="w-6 h-6 text-slate-300 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all" />
@@ -79,7 +119,6 @@ export default function AdminDashboard() {
                     </div>
                 </Link>
 
-                {/* Tarjeta: Configuración (Placeholder) */}
                 <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-gray-300 opacity-75">
                     <h3 className="text-xl font-bold text-slate-900 mb-2">Configuración Global</h3>
                     <p className="text-slate-500">

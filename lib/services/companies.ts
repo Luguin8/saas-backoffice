@@ -148,3 +148,58 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
         };
     });
 };
+
+export type DashboardStats = {
+    activeCompanies: number;
+    totalUsers: number;
+    mrr: number;
+};
+
+export const fetchDashboardStats = async (): Promise<DashboardStats> => {
+    // 1. Obtener conteo de usuarios totales
+    const { count: totalUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true }); // head: true significa "solo dame el número, no los datos"
+
+    if (usersError) throw new Error(`Error contando usuarios: ${usersError.message}`);
+
+    // 2. Obtener datos financieros de empresas ACTIVAS
+    // Traemos solo lo necesario para sumar (fees y módulos)
+    const { data: orgs, error: orgsError } = await supabase
+        .from('organizations')
+        .select(`
+            base_maintenance_fee,
+            organization_modules (
+                modules (
+                    monthly_price_adder
+                )
+            )
+        `)
+        .eq('status', 'active'); // Solo sumamos empresas activas al MRR
+
+    if (orgsError) throw new Error(`Error calculando finanzas: ${orgsError.message}`);
+
+    // 3. Calcular MRR (Matemática pura en el cliente)
+    let mrr = 0;
+    const activeCompanies = orgs?.length || 0;
+
+    orgs?.forEach((org) => {
+        // A. Sumar mantenimiento base
+        mrr += Number(org.base_maintenance_fee || 0);
+
+        // B. Sumar precio de módulos adicionales
+        if (org.organization_modules) {
+            org.organization_modules.forEach((om: any) => {
+                if (om.modules) {
+                    mrr += Number(om.modules.monthly_price_adder || 0);
+                }
+            });
+        }
+    });
+
+    return {
+        activeCompanies,
+        totalUsers: totalUsers || 0,
+        mrr
+    };
+};
