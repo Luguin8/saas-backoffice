@@ -3,7 +3,6 @@ import { supabase } from '../supabase';
 export type Module = {
     key: string;
     name: string;
-    // Agregamos description y precio por si quieres mostrarlos en el futuro
     description?: string;
     monthly_price_adder?: number;
 };
@@ -12,32 +11,55 @@ export type CreateCompanyDTO = {
     name: string;
     slug: string;
     logoFile?: File;
-    maintenanceFee: number; // <--- NUEVO CAMPO
+    maintenanceFee: number;
+    primaryColor: string;   // <--- NUEVO
+    secondaryColor: string; // <--- NUEVO
     selectedModules: string[];
 };
 
+export type DashboardStats = {
+    activeCompanies: number;
+    totalUsers: number;
+    mrr: number;
+};
+
+export type CompanySummary = {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+    status: string;
+    base_maintenance_fee: number;
+    modules_count: number;
+    modules_names: string[];
+    total_monthly_cost: number;
+    owner_email?: string;
+};
+
 export const uploadLogo = async (file: File, slug: string): Promise<string | null> => {
-    // ... (El código de upload se mantiene igual)
     const fileExt = file.name.split('.').pop();
     const fileName = `${slug}-${Date.now()}.${fileExt}`;
+
+    // Subir archivo
     const { error: uploadError } = await supabase.storage
         .from('company-logos')
         .upload(fileName, file);
 
     if (uploadError) throw new Error(`Error subiendo logo: ${uploadError.message}`);
 
+    // Obtener URL pública
     const { data } = supabase.storage
         .from('company-logos')
         .getPublicUrl(fileName);
+
     return data.publicUrl;
 };
 
 export const fetchModules = async (): Promise<Module[]> => {
-    // Ahora traemos más datos útiles del módulo
     const { data, error } = await supabase
         .from('modules')
         .select('key, name, description, monthly_price_adder')
-        .eq('is_active', true); // Solo módulos activos
+        .eq('is_active', true);
 
     if (error) throw new Error(error.message);
     return data || [];
@@ -50,15 +72,17 @@ export const createOrganization = async (data: CreateCompanyDTO) => {
         logoUrl = await uploadLogo(data.logoFile, data.slug);
     }
 
-    // Insertamos ajustándonos a tu nuevo esquema
+    // Insertar Organización con Colores
     const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({
             name: data.name,
             slug: data.slug,
             logo_url: logoUrl,
-            base_maintenance_fee: data.maintenanceFee, // <--- Guardamos el fee
-            status: 'active' // Coincide con tu enum 'active'::org_status
+            base_maintenance_fee: data.maintenanceFee,
+            primary_color: data.primaryColor,     // <--- Guardamos color 1
+            secondary_color: data.secondaryColor, // <--- Guardamos color 2
+            status: 'active'
         })
         .select('id')
         .single();
@@ -67,12 +91,12 @@ export const createOrganization = async (data: CreateCompanyDTO) => {
 
     const orgId = orgData.id;
 
+    // Insertar Módulos
     if (data.selectedModules.length > 0) {
         const modulesToInsert = data.selectedModules.map((moduleKey) => ({
             organization_id: orgId,
             module_key: moduleKey,
             is_enabled: true,
-            // activated_at se llena solo con el default del esquema
         }));
 
         const { error: modulesError } = await supabase
@@ -87,23 +111,54 @@ export const createOrganization = async (data: CreateCompanyDTO) => {
     return orgId;
 };
 
-// ... (imports anteriores)
+export const fetchDashboardStats = async (): Promise<DashboardStats> => {
+    // 1. Contar usuarios usando la función segura (o política permisiva)
+    const { count: totalUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
 
-export type CompanySummary = {
-    id: string;
-    name: string;
-    slug: string;
-    logo_url: string | null;
-    status: string;
-    base_maintenance_fee: number;
-    modules_count: number;
-    modules_names: string[];
-    total_monthly_cost: number;
-    owner_email?: string; // Lo agregaremos cuando integremos auth real de la empresa
+    if (usersError) {
+        console.error("Error contando usuarios:", usersError);
+        // No lanzamos error para no romper todo el dashboard, retornamos 0
+    }
+
+    // 2. Datos financieros
+    const { data: orgs, error: orgsError } = await supabase
+        .from('organizations')
+        .select(`
+            base_maintenance_fee,
+            organization_modules (
+                modules (
+                    monthly_price_adder
+                )
+            )
+        `)
+        .eq('status', 'active');
+
+    if (orgsError) throw new Error(`Error calculando finanzas: ${orgsError.message}`);
+
+    let mrr = 0;
+    const activeCompanies = orgs?.length || 0;
+
+    orgs?.forEach((org) => {
+        mrr += Number(org.base_maintenance_fee || 0);
+        if (org.organization_modules) {
+            org.organization_modules.forEach((om: any) => {
+                if (om.modules) {
+                    mrr += Number(om.modules.monthly_price_adder || 0);
+                }
+            });
+        }
+    });
+
+    return {
+        activeCompanies,
+        totalUsers: totalUsers || 0,
+        mrr
+    };
 };
 
 export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
-    // 1. Traemos empresas con sus módulos
     const { data: organizations, error } = await supabase
         .from('organizations')
         .select(`
@@ -119,14 +174,12 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
 
     if (error) throw new Error(error.message);
 
-    // 2. Procesamos los datos para "aplanarlos" estilo Excel
     return organizations.map((org: any) => {
         let modulesCost = 0;
         const moduleNames: string[] = [];
 
         if (org.organization_modules) {
             org.organization_modules.forEach((om: any) => {
-                // Accedemos al modulo anidado
                 if (om.modules) {
                     modulesCost += Number(om.modules.monthly_price_adder || 0);
                     moduleNames.push(om.modules.name);
@@ -144,62 +197,7 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
             modules_count: moduleNames.length,
             modules_names: moduleNames,
             total_monthly_cost: Number(org.base_maintenance_fee || 0) + modulesCost,
-            owner_email: 'pendiente@asignar.com' // Placeholder hasta que creemos el usuario real
+            owner_email: 'pendiente@asignar.com'
         };
     });
-};
-
-export type DashboardStats = {
-    activeCompanies: number;
-    totalUsers: number;
-    mrr: number;
-};
-
-export const fetchDashboardStats = async (): Promise<DashboardStats> => {
-    // 1. Obtener conteo de usuarios totales
-    const { count: totalUsers, error: usersError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true }); // head: true significa "solo dame el número, no los datos"
-
-    if (usersError) throw new Error(`Error contando usuarios: ${usersError.message}`);
-
-    // 2. Obtener datos financieros de empresas ACTIVAS
-    // Traemos solo lo necesario para sumar (fees y módulos)
-    const { data: orgs, error: orgsError } = await supabase
-        .from('organizations')
-        .select(`
-            base_maintenance_fee,
-            organization_modules (
-                modules (
-                    monthly_price_adder
-                )
-            )
-        `)
-        .eq('status', 'active'); // Solo sumamos empresas activas al MRR
-
-    if (orgsError) throw new Error(`Error calculando finanzas: ${orgsError.message}`);
-
-    // 3. Calcular MRR (Matemática pura en el cliente)
-    let mrr = 0;
-    const activeCompanies = orgs?.length || 0;
-
-    orgs?.forEach((org) => {
-        // A. Sumar mantenimiento base
-        mrr += Number(org.base_maintenance_fee || 0);
-
-        // B. Sumar precio de módulos adicionales
-        if (org.organization_modules) {
-            org.organization_modules.forEach((om: any) => {
-                if (om.modules) {
-                    mrr += Number(om.modules.monthly_price_adder || 0);
-                }
-            });
-        }
-    });
-
-    return {
-        activeCompanies,
-        totalUsers: totalUsers || 0,
-        mrr
-    };
 };
