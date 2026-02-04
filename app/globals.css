@@ -1,8 +1,1 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Opcional: un fondo base para tu backoffice */
-body {
-  @apply bg-slate-50 text-slate-900;
-}
+@import "tailwindcss";
