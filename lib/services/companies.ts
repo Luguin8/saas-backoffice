@@ -1,72 +1,64 @@
 import { supabase } from '../supabase';
 
-// Tipos básicos para evitar errores de TS
 export type Module = {
     key: string;
     name: string;
+    // Agregamos description y precio por si quieres mostrarlos en el futuro
+    description?: string;
+    monthly_price_adder?: number;
 };
 
 export type CreateCompanyDTO = {
     name: string;
     slug: string;
     logoFile?: File;
-    selectedModules: string[]; // Array de keys
+    maintenanceFee: number; // <--- NUEVO CAMPO
+    selectedModules: string[];
 };
 
-/**
- * Sube el logo al bucket 'company-logos' y retorna la URL pública
- */
 export const uploadLogo = async (file: File, slug: string): Promise<string | null> => {
+    // ... (El código de upload se mantiene igual)
     const fileExt = file.name.split('.').pop();
     const fileName = `${slug}-${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
     const { error: uploadError } = await supabase.storage
         .from('company-logos')
-        .upload(filePath, file);
+        .upload(fileName, file);
 
     if (uploadError) throw new Error(`Error subiendo logo: ${uploadError.message}`);
 
     const { data } = supabase.storage
         .from('company-logos')
-        .getPublicUrl(filePath);
-
+        .getPublicUrl(fileName);
     return data.publicUrl;
 };
 
-/**
- * Obtiene el catálogo de módulos disponibles
- */
 export const fetchModules = async (): Promise<Module[]> => {
+    // Ahora traemos más datos útiles del módulo
     const { data, error } = await supabase
         .from('modules')
-        .select('key, name');
+        .select('key, name, description, monthly_price_adder')
+        .eq('is_active', true); // Solo módulos activos
 
     if (error) throw new Error(error.message);
     return data || [];
 };
 
-/**
- * Crea la organización y sus relaciones
- * Nota: Lo ideal es un RPC (Stored Procedure) para ACID estricto, 
- * pero aquí lo manejamos por pasos para cumplir el requerimiento con el cliente estándar.
- */
 export const createOrganization = async (data: CreateCompanyDTO) => {
     let logoUrl = null;
 
-    // 1. Subir logo si existe
     if (data.logoFile) {
         logoUrl = await uploadLogo(data.logoFile, data.slug);
     }
 
-    // 2. Insertar Organización
+    // Insertamos ajustándonos a tu nuevo esquema
     const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({
             name: data.name,
             slug: data.slug,
             logo_url: logoUrl,
-            status: 'active' // Asumo estado activo por defecto
+            base_maintenance_fee: data.maintenanceFee, // <--- Guardamos el fee
+            status: 'active' // Coincide con tu enum 'active'::org_status
         })
         .select('id')
         .single();
@@ -75,12 +67,12 @@ export const createOrganization = async (data: CreateCompanyDTO) => {
 
     const orgId = orgData.id;
 
-    // 3. Insertar Relaciones de Módulos (si hay seleccionados)
     if (data.selectedModules.length > 0) {
         const modulesToInsert = data.selectedModules.map((moduleKey) => ({
             organization_id: orgId,
             module_key: moduleKey,
             is_enabled: true,
+            // activated_at se llena solo con el default del esquema
         }));
 
         const { error: modulesError } = await supabase
@@ -88,11 +80,71 @@ export const createOrganization = async (data: CreateCompanyDTO) => {
             .insert(modulesToInsert);
 
         if (modulesError) {
-            // En un escenario real sin RPC, aquí deberíamos hacer rollback (borrar la org creada)
-            // await supabase.from('organizations').delete().eq('id', orgId);
             throw new Error(`Error asignando módulos: ${modulesError.message}`);
         }
     }
 
     return orgId;
+};
+
+// ... (imports anteriores)
+
+export type CompanySummary = {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+    status: string;
+    base_maintenance_fee: number;
+    modules_count: number;
+    modules_names: string[];
+    total_monthly_cost: number;
+    owner_email?: string; // Lo agregaremos cuando integremos auth real de la empresa
+};
+
+export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
+    // 1. Traemos empresas con sus módulos
+    const { data: organizations, error } = await supabase
+        .from('organizations')
+        .select(`
+      *,
+      organization_modules (
+        module_key,
+        modules (
+           name,
+           monthly_price_adder
+        )
+      )
+    `);
+
+    if (error) throw new Error(error.message);
+
+    // 2. Procesamos los datos para "aplanarlos" estilo Excel
+    return organizations.map((org: any) => {
+        let modulesCost = 0;
+        const moduleNames: string[] = [];
+
+        if (org.organization_modules) {
+            org.organization_modules.forEach((om: any) => {
+                // Accedemos al modulo anidado
+                if (om.modules) {
+                    modulesCost += Number(om.modules.monthly_price_adder || 0);
+                    moduleNames.push(om.modules.name);
+                }
+            });
+        }
+
+        return {
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+            logo_url: org.logo_url,
+            status: org.status,
+            base_maintenance_fee: Number(org.base_maintenance_fee || 0),
+            modules_count: moduleNames.length,
+            modules_names: moduleNames,
+            total_monthly_cost: Number(org.base_maintenance_fee || 0) + modulesCost,
+            owner_email: 'pendiente@asignar.com' // Placeholder hasta que creemos el usuario real
+        };
+    });
 };
