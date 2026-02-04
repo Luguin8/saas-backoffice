@@ -102,7 +102,20 @@ export default function CompaniesListPage() {
                                             </span>
                                         </div>
                                     </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex flex-col">
+                                            {/* Usamos el email del input si lo guardamos, o mostramos el generico */}
+                                            <span className="text-slate-700 font-medium text-sm">Dueño</span>
 
+                                            {company.initial_password ? (
+                                                <div className="mt-1 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800 font-mono">
+                                                    <span className="font-bold">Pass:</span> {company.initial_password}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">Sin contraseña inicial</span>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                                             {company.modules_count} Activos

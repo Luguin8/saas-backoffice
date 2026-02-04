@@ -34,6 +34,7 @@ export type CompanySummary = {
     modules_names: string[];
     total_monthly_cost: number;
     owner_email?: string;
+    initial_password?: string;
 };
 
 export const uploadLogo = async (file: File, slug: string): Promise<string | null> => {
@@ -163,6 +164,7 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
         .from('organizations')
         .select(`
       *,
+      initial_password,
       organization_modules (
         module_key,
         modules (
