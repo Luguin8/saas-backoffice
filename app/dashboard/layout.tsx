@@ -4,9 +4,8 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import {
     LayoutDashboard,
-    ArrowLeftRight, // Para movimientos
-    PieChart,       // Para reportes
-    Settings,
+    ArrowLeftRight,
+    PieChart,
     LogOut,
     Users
 } from 'lucide-react';
@@ -25,18 +24,13 @@ export default async function DashboardLayout({
         {
             cookies: {
                 getAll() { return cookieStore.getAll() },
-                setAll(cookiesToSet) {
-                    // En Next.js Server Components, setAll no se usa típicamente para lectura
-                },
             },
         }
     );
 
-    // 1. Verificar Sesión
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect('/login');
 
-    // 2. Obtener datos de la Empresa y Perfil
     const { data: profile } = await supabase
         .from('profiles')
         .select(`
@@ -52,14 +46,12 @@ export default async function DashboardLayout({
         .eq('id', user.id)
         .single();
 
-    // Seguridad: Si no tiene empresa asignada, fuera.
     if (!profile || !profile.organizations) {
         redirect('/');
     }
 
     const org = profile.organizations;
 
-    // 3. Definir variables CSS dinámicas
     const brandStyle = {
         '--brand-primary': org.primary_color || '#0f172a',
         '--brand-secondary': org.secondary_color || '#3b82f6',
@@ -68,20 +60,31 @@ export default async function DashboardLayout({
     return (
         <div className="flex h-screen bg-slate-50" style={brandStyle}>
 
-            {/* SIDEBAR DINÁMICO */}
+            {/* SIDEBAR */}
             <aside className="w-64 flex-shrink-0 flex flex-col transition-all duration-300 shadow-xl z-10"
                 style={{ backgroundColor: 'var(--brand-primary)' }}>
 
-                {/* Logo de la Empresa */}
+                {/* LOGO DE LA EMPRESA */}
                 <div className="h-16 flex items-center px-6 border-b border-white/10">
                     {org.logo_url ? (
-                        <img src={org.logo_url} alt={org.name} className="h-8 object-contain brightness-0 invert" />
-                    ) : (
-                        <span className="text-white font-bold text-lg truncate">{org.name}</span>
-                    )}
+                        <img
+                            src={org.logo_url}
+                            alt={org.name}
+                            className="h-8 w-auto object-contain brightness-0 invert"
+                            onError={(e) => {
+                                // Fallback si la imagen falla
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                        />
+                    ) : null}
+                    {/* Texto de respaldo (se muestra si no hay logo o si falla la carga) */}
+                    <span className={`text-white font-bold text-lg truncate ${org.logo_url ? 'hidden' : ''}`}>
+                        {org.name}
+                    </span>
                 </div>
 
-                {/* Navegación */}
+                {/* NAVEGACIÓN */}
                 <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
                     <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2.5 text-white/90 rounded-lg hover:bg-white/10 transition-colors group">
                         <LayoutDashboard className="w-5 h-5 text-white/70 group-hover:text-white" />
@@ -98,13 +101,14 @@ export default async function DashboardLayout({
                         <span className="font-medium">Reportes</span>
                     </Link>
 
-                    <Link href="/dashboard/team" className="flex items-center gap-3 px-3 py-2.5 text-white/70 rounded-lg hover:bg-white/10 transition-colors group">
+                    {/* CORRECCIÓN: Apuntar a 'teams' (plural) */}
+                    <Link href="/dashboard/teams" className="flex items-center gap-3 px-3 py-2.5 text-white/70 rounded-lg hover:bg-white/10 transition-colors group">
                         <Users className="w-5 h-5 group-hover:text-white" />
                         <span className="font-medium">Equipo</span>
                     </Link>
                 </nav>
 
-                {/* Footer del Sidebar */}
+                {/* FOOTER SIDEBAR */}
                 <div className="p-4 border-t border-white/10">
                     <div className="flex items-center gap-3 px-3 py-2 mb-2">
                         <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs text-white font-bold border border-white/20">
@@ -116,35 +120,24 @@ export default async function DashboardLayout({
                         </div>
                     </div>
 
+                    {/* CORRECCIÓN: Action apunta a la ruta creada en paso 1 */}
                     <form action="/auth/signout" method="post">
                         <button className="flex items-center gap-3 px-3 py-2 w-full text-white/60 hover:text-red-300 transition-colors">
                             <LogOut className="w-4 h-4" />
                             <span className="text-sm">Salir</span>
                         </button>
                     </form>
-                </div>
 
-                {/* Footer del Sidebar */}
-                <div className="p-4 border-t border-white/10">
-
-                    {/* ... (código del perfil de usuario) ... */}
-
-                    <form action="/auth/signout" method="post">
-                        {/* ... botón salir ... */}
-                    </form>
-
-                    {/* NUEVO: Branding "Powered by Cajix" */}
+                    {/* BRANDING CAJIX */}
                     <div className="mt-6 pt-4 border-t border-white/5 text-center">
                         <p className="text-[10px] text-white/40 uppercase tracking-wider">Powered by</p>
                         <p className="text-white/60 text-lg" style={{ fontFamily: 'var(--font-revalia)' }}>Cajix</p>
                     </div>
-
                 </div>
             </aside>
 
-            {/* CONTENIDO PRINCIPAL */}
+            {/* CONTENIDO */}
             <main className="flex-1 flex flex-col overflow-hidden relative">
-                {/* Envolvemos el contenido con el Provider */}
                 <DashboardProvider userRole={profile.role}>
                     <div className="flex-1 overflow-auto p-6 md:p-8">
                         {children}
