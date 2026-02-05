@@ -10,7 +10,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const pathname = usePathname();
     const isDashboard = pathname === '/admin';
 
-    // Cliente para cerrar sesión
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -23,9 +22,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            {/* Header del Superadmin */}
-            <header className="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div className="h-screen bg-slate-50 flex flex-col overflow-hidden">
+            {/* Header Fijo */}
+            <header className="bg-slate-900 text-white shadow-md flex-shrink-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         {!isDashboard && (
@@ -65,8 +64,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
             </header>
 
-            {/* Contenido de la página */}
-            <main>
+            {/* Contenido con Scroll Independiente */}
+            <main className="flex-1 overflow-y-auto bg-slate-50">
                 {children}
             </main>
         </div>
