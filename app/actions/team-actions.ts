@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
-// Cliente Admin para crear usuarios
+// Cliente Admin para crear usuarios (Service Role)
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -14,64 +14,95 @@ const supabaseAdmin = createClient(
 
 export async function createTeamMemberAction(formData: FormData) {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
+
+    // 1. Obtener sesión del usuario actual (quien invita)
+    const supabaseAuth = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll() } } }
+        {
+            cookies: {
+                getAll() { return cookieStore.getAll() },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        )
+                    } catch { }
+                },
+            },
+        }
     );
 
-    // 1. Verificar quien invita (debe ser owner o admin)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, message: 'No autorizado' };
+    const { data: { user: currentUser } } = await supabaseAuth.auth.getUser();
+    if (!currentUser) return { success: false, message: 'No autenticado' };
 
-    const { data: requester } = await supabase
+    // 2. Verificar permisos y obtener Organization ID
+    // Usamos supabase (el cliente normal) o authAdmin para leer el perfil
+    const { data: requester } = await supabaseAuth // Usamos el cliente autenticado para leer el propio perfil
         .from('profiles')
         .select('organization_id, role')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single();
 
-    if (requester.role === 'employee') return { success: false, message: 'Permisos insuficientes' };
-
-    const email = formData.get('email') as string;
-    const fullName = formData.get('fullName') as string;
-    const role = formData.get('role') as string; // <--- Nuevo campo
-
-    // Validar rol
-    if (!['admin', 'employee'].includes(role)) {
-        return { success: false, message: 'Rol inválido' };
+    // --- CORRECCIÓN TYPESCRIPT ---
+    // Validamos explícitamente que 'requester' exista antes de leer sus propiedades
+    if (!requester) {
+        return { success: false, message: 'No se encontró el perfil del usuario.' };
     }
 
-    // 2. Crear usuario en Auth (Admin)
-    const tempPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+    if (!requester.organization_id) {
+        return { success: false, message: 'No tienes una organización asignada.' };
+    }
 
-    const { data: newUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: { full_name: fullName }
-    });
+    // Solo Dueños y Admins pueden invitar
+    if (requester.role === 'employee') {
+        return { success: false, message: 'No tienes permisos para agregar miembros.' };
+    }
+    // -----------------------------
 
-    if (authError) return { success: false, message: authError.message };
+    // 3. Datos del nuevo miembro
+    const email = formData.get('email') as string;
+    const fullName = formData.get('fullName') as string;
+    const role = formData.get('role') as string;
 
-    // 3. Crear Perfil en BD
-    if (newUser.user) {
+    // 4. Generar contraseña temporal
+    const tempPassword = Math.random().toString(36).slice(-8) + "Aa1!";
+
+    try {
+        // 5. Crear usuario en Auth
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email,
+            password: tempPassword,
+            email_confirm: true,
+            user_metadata: { full_name: fullName }
+        });
+
+        if (authError) throw new Error(authError.message);
+        if (!authData.user) throw new Error('No se pudo crear el usuario.');
+
+        // 6. Crear perfil vinculado a la MISMA organización
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
-            .insert({
-                id: newUser.user.id,
-                organization_id: requester.organization_id,
+            .upsert({
+                id: authData.user.id,
+                organization_id: requester.organization_id, // TypeScript ahora sabe que esto existe
                 full_name: fullName,
-                email: email, // Opcional si agregaste la columna, sino quitalo
-                role: role // <--- Guardamos el rol seleccionado
+                role: role as any,
             });
 
         if (profileError) {
-            // Rollback (borrar usuario auth si falla perfil)
-            await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-            return { success: false, message: 'Error creando perfil: ' + profileError.message };
+            await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+            throw new Error(profileError.message);
         }
-    }
 
-    revalidatePath('/dashboard/teams');
-    return { success: true, message: `Usuario creado. Pass temporal: ${tempPassword}` };
+        revalidatePath('/dashboard/teams');
+        return {
+            success: true,
+            message: 'Usuario creado',
+            newPassword: tempPassword
+        };
+
+    } catch (error: any) {
+        return { success: false, message: error.message };
+    }
 }

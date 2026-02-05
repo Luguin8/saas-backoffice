@@ -1,0 +1,147 @@
+ANÁLISIS TÉCNICO COMPLETO: SAAS-BACKOFFICE
+===========================================
+Fecha de Análisis: 2026-02-05
+Versión del Software: 0.1.0 (según package.json)
+Framework: Next.js 16.1.6 (App Router)
+
+1. RESUMEN EJECUTIVO
+--------------------
+La aplicación "saas-backoffice" es un sistema de gestión financiera (SaaS) diseñado para PyMEs ("Cajix").
+Posee una arquitectura multi-tenancy donde:
+- Existe un "Superadmin" que gestiona las empresas (tenants) desde un panel de Backoffice.
+- Existen "Clientes/Dueños" que gestionan sus finanzas (transacciones) desde un Dashboard.
+- El sistema diferencia estrictamente entre movimientos "Fiscales" (blanco) y "No Fiscales/Internos" (negro), con capacidades de privacidad y exportación selectiva.
+
+2. TECNOLOGÍAS Y STACK
+----------------------
+- **Core**: Next.js 16 (React 19), TypeScript.
+- **Base de Datos & Auth**: Supabase (PostgreSQL + Auth).
+- **Estilos**: Tailwind CSS 4.
+- **UI Components**: Shadcn/ui (aparente), Lucide React (iconos).
+- **Manejo de Estado/Datos**: Server Actions (Mutaciones) + React Server Components (Data Fetching).
+- **Utilidades**: 
+  - `date-fns`: Manejo de fechas.
+  - `jspdf` + `jspdf-autotable`: Generación de reportes PDF.
+  - `recharts`: Gráficos financieros.
+  - `sonner` (inferido por useToast/Context): Notificaciones.
+
+3. ARQUITECTURA DE SEGURIDAD (MIDDLEWARE & AUTH)
+------------------------------------------------
+Archivo: `middleware.ts`
+- **Protección de Rutas**:
+  - `/admin`: Rutas del Superadmin.
+  - `/dashboard`: Rutas del Cliente.
+  - Si no hay sesión, redirige a `/login`.
+- **Estrategia de Roles**: 
+  - Actualmente implementada como "Soft Protection" en middleware (basada en sesión).
+  - La seguridad real de datos reside en RLS (Row Level Security) en Supabase (inferido de los comentarios "confiamos en RLS").
+  - El middleware sugiere una futura mejora para verificar "Custom Claims" o cookies de rol.
+
+4. FUNCIONALIDADES DETALLADAS: MÓDULO BACKOFFICE (SUPERADMIN)
+-------------------------------------------------------------
+Ruta base: `/app/admin`
+
+A. **Dashboard Principal (`/admin/page.tsx`)**
+   - **KPIs en Tiempo Real**:
+     1. **Empresas Activas**: Total de organizaciones con status 'active'.
+     2. **MRR (Monthly Recurring Revenue)**: Calculado sumando:
+        - Tarifa base de mantenimiento de cada empresa.
+        - Precio adicional de cada módulo activado (`monthly_price_adder`).
+     3. **Usuarios Totales**: Conteo de perfiles registrados.
+   - **Navegación Rápida**: Accesos a "Nueva Empresa", "Listado de Empresas" y "Configuración Global".
+
+B. **Gestión de Empresas (`actions/create-organization.ts`)**
+   - **Flujo de Alta de Empresa (Extremadamente detallado)**:
+     1. **Cliente Admin**: Usa `SUPABASE_SERVICE_ROLE_KEY` (permisos totales) para bypass de restricciones.
+     2. **Generación de Credenciales**: Crea una contraseña aleatoria segura automáticamente (visualizada una sola vez).
+     3. **Creación de Usuario**: Registra al dueño en `auth.users` con metadata `role: 'owner'`. Auto-confirma el email.
+     4. **Creación de Organización**: Inserta en tabla `organizations` (slug, logo, colores, fee, etc.).
+     5. **Vinculación**: Crea registro en `profiles` vinculando `user.id` con `organization.id`.
+     6. **Asignación de Módulos**: Inserta registros en `organization_modules` según selección.
+     7. **Rollback Manual**: Si falla la creación de la org, borra el usuario creado para mantener consistencia.
+
+C. **Listado de Empresas**
+   - Muestra tabla con estado, deudas (implícito en descripción), módulos activos y costos mensuales.
+
+5. FUNCIONALIDADES DETALLADAS: MÓDULO DASHBOARD (CLIENTE/PYME)
+--------------------------------------------------------------
+Ruta base: `/app/dashboard`
+
+A. **Resumen Financiero (`/dashboard/page.tsx`)**
+   - **Carga de Datos**: Usa `Promise.all` para paralelizar `getDashboardStats` y `getCommonData`.
+   - **Zero State**: Si no hay ingresos ni egresos, muestra un banner de bienvenida ("Tu caja está segura, pero vacía").
+   - **Action Center**: Botones rápidos para registrar movimientos frecuentes (basados en categorías/payees).
+
+B. **Gestión de Transacciones (`TransactionModal.tsx`)**
+   - **Tipos**: Ingreso (`income`) y Egreso (`expense`).
+   - **Campos**:
+     - Monto y Moneda (ARS/USD).
+     - Categoría (con creación rápida).
+     - Proveedor/Cliente (con creación rápida).
+     - Descripción y Fecha.
+     - **Flag Crítico "Es Fiscal"**: Checkbox que marca si el movimiento es "blanco". Visible para empleados.
+   - **Feedback**: Usa Toasts (Notificaciones) verdes para éxito y rojos para error.
+   - **Edición/Eliminación**: Permite modificar o borrar transacciones existentes.
+
+C. **Visualización de Movimientos (`MovementsTable.tsx`)**
+   - **Filtros**:
+     - Texto (Búsqueda por descripción, categoría, proveedor o monto).
+     - Tipo (Todos, Ingresos, Egresos).
+   - **Lógica de Privacidad ("Modo Ojo")**:
+     - Integrado vía `PrivacyToggle`.
+     - Si está activo el modo privacidad (`showRealNumbers = false`), **oculta** las transacciones NO fiscales (internas).
+   - **Formato**:
+     - Fechas formateadas en español (`es` locale).
+     - Montos formateados según moneda (ARS/USD).
+     - Badges para estado "Fiscal" vs "Interno".
+
+D. **Exportación de Reportes (`lib/utils/export-helper.ts`)**
+   - **Formato**: PDF generado con `jspdf-autotable`.
+   - **Seguridad Fiscal**: El reporte **filtra forzosamente** (`filter(t => t.is_fiscal === true)`) los datos. 
+   - **Contenido**: Solo muestra movimientos "blancos". Ideal para enviar al contador sin exponer la caja "negra".
+   - **Estilo**: Header profesional, tabla con colores corporativos (verde).
+
+6. SERVER ACTIONS (LÓGICA DEL SERVIDOR)
+---------------------------------------
+Ubicación: `/app/actions`
+
+- `transaction-actions.ts`:
+  - `createTransactionAction`: Inserta en DB. Verifica autenticación y que el usuario tenga organización.
+  - `updateTransactionAction`: Actualiza transacción. Nota: PostgreSQL Trigger se encarga de auditoría (mencionado en comentarios).
+  - `deleteTransactionAction`: Eliminación física.
+- `create-organization.ts`: Lógica compleja de alta de tenant (detallada en sección 4B).
+- `config-actions.ts`: Creación rápida de Categorías y Payees (Proveedores/Clientes).
+- `get-dashboard-stats.ts`: Calcula totales de Ingresos/Egresos por moneda (ARS/USD).
+- `get-transactions.ts`: Fetch de listado de movimientos.
+- `team-actions.ts`: Gestión de miembros del equipo (presumiblemente invitación/roles).
+
+7. MODELO DE DATOS INFERIDO (SCHEMA)
+------------------------------------
+Basado en las queries de Supabase:
+
+- **organizations**: 
+  - `id`, `name`, `slug`, `logo_url`, `primary_color`, `secondary_color`, `status`, `base_maintenance_fee`, `owner_email`, `initial_password`.
+- **profiles**: 
+  - `id` (FK auth.users), `organization_id`, `full_name`, `role`.
+- **transactions**: 
+  - `id`, `organization_id`, `profile_id`, `amount`, `description`, `currency`, `type` ('income'/'expense'), `is_fiscal` (bool), `category_id`, `payee_id`, `transaction_date`.
+- **modules**: 
+  - `key`, `name`, `description`, `monthly_price_adder`, `is_active`.
+- **organization_modules**: 
+  - `organization_id`, `module_key`, `is_enabled`.
+- **categories** / **payees**: 
+  - Tablas auxiliares para clasificación.
+
+8. CONFIGURACIÓN Y UX
+---------------------
+- **Estilos Globales**: Tailwind CSS configurado en `globals.css` y `layout.tsx`.
+- **Fuentes**: Uso de `Geist Sans`, `Geist Mono` y **`Revalia`** (Fuente de marca) inyectadas via CSS variables.
+- **Multimoneda**: Soporte explícito visual y lógico para ARS y USD.
+- **Contextos React**:
+  - `ToastContext`: Para notificaciones globales.
+  - `DashboardContext`: Para estado global del dashboard (ej. filtro de privacidad).
+
+9. CONCLUSIÓN DEL ANÁLISIS
+--------------------------
+El sistema cuenta con una base sólida para un SaaS B2B. Destaca la separación lógica y de seguridad entre "Superadmin" (Gestión del negocio SaaS) y "Usuario Final" (Gestión de su caja). 
+La característica más valiosa identificada es el manejo "Híbrido" de finanzas (Fiscal vs Interno) con mecanismos de seguridad (Privacy Toggle y Exportación Filtrada) que protegen la información sensible del cliente ante terceros (empleados o contadores).
