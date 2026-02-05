@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
     let response = NextResponse.next({
-        request: { headers: request.headers },
+        request: {
+            headers: request.headers,
+        },
     })
 
     const supabase = createServerClient(
@@ -21,34 +23,23 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    // 1. Obtener usuario
     const { data: { user } } = await supabase.auth.getUser()
-
     const path = request.nextUrl.pathname;
-    const isBackoffice = path.startsWith('/admin');
-    const isDashboard = path.startsWith('/dashboard');
 
-    // 2. Si no hay usuario y quiere entrar a rutas protegidas -> Login
-    if (!user && (isBackoffice || isDashboard)) {
+    // 1. Protección básica de sesión
+    if (!user && (path.startsWith('/admin') || path.startsWith('/dashboard'))) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // 3. Si ya está logueado y quiere ir al Login -> Redirigir según rol
-    // (Esto requiere leer el perfil, pero por performance, lo mandamos al root '/' 
-    // que ya tiene tu lógica de redirección inteligente en app/page.tsx)
-    if (user && path === '/login') {
-        return NextResponse.redirect(new URL('/', request.url));
-    }
+    // 2. Protección de Backoffice (Solo Superadmin)
+    // Nota: Consultar la BD en middleware puede ser lento.
+    // Lo ideal es Custom Claims, pero para este MVP, haremos una redirección
+    // optimista en app/page.tsx y aquí confiamos en RLS + UX, 
+    // PERO para mayor seguridad, si un usuario logueado intenta entrar a /admin
+    // podemos verificar si tiene una cookie de rol o metadata (si la hubiéramos seteado).
 
-    // 4. PROTECCIÓN DE ROLES (NUEVO)
-    if (user) {
-        // Obtenemos el rol desde una cookie no segura o metadata si estuviera disponible.
-        // Como RLS protege los datos, aquí solo hacemos una redirección UX.
-        // Para seguridad total en middleware se requieren Custom Claims en JWT.
-
-        // Verificación simple: Si un usuario intenta entrar a admin, dejamos que RLS actúe, 
-        // PERO podemos verificar la metadata del usuario si la guardamos al login.
-    }
+    // Por ahora, tu seguridad RADICA en RLS. Si un empleado entra a /admin, 
+    // verá todo en blanco. Es aceptable para MVP, pero idealmente, agregaríamos lógica aquí.
 
     return response
 }

@@ -119,12 +119,15 @@ export default function AdminDashboard() {
                     </div>
                 </Link>
 
-                <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-gray-300 opacity-75">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Configuración Global</h3>
-                    <p className="text-slate-500">
-                        Gestión de precios de módulos, plantillas de correo y ajustes del sistema. (Próximamente)
-                    </p>
-                </div>
+                {/* Tarjeta: Configuración Global */}
+                <Link href="/admin/settings" className="group block">
+                    <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all h-full border-l-4 border-l-slate-500">
+                        <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">Configuración Global</h3>
+                        <p className="text-slate-500">
+                            Gestión de precios de módulos y ajustes del sistema.
+                        </p>
+                    </div>
+                </Link>
             </div>
         </div>
     );
