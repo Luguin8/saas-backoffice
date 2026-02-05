@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js'; // Cliente simple para fetch
 import { createTeamMemberAction } from '@/app/actions/team-actions';
+import { useToast } from '@/app/dashboard/context/ToastContext'; // Usamos tu nuevo toast
 import { Plus, User, Shield, Briefcase, Trash2, Copy, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
 
 // Cliente para Client Components (puedes usar el hook useSupabase si lo tienes, o createBrowserClient)
 // Por simplicidad en el ejemplo, asumimos que tienes un cliente exportado o lo creamos inline
@@ -172,12 +174,24 @@ export default function TeamPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
                                     <input name="email" type="email" required className="w-full px-3 py-2 border rounded-lg" placeholder="juan@empresa.com" />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
-                                    <select name="role" className="w-full px-3 py-2 border rounded-lg bg-white">
-                                        <option value="employee">Empleado (Acceso Limitado)</option>
-                                        <option value="admin">Administrativo (Gestión)</option>
-                                    </select>
+                                {/* SELECTOR DE ROL */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Rol y Permisos</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <label className="relative flex flex-col items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all">
+                                            <input type="radio" name="role" value="employee" defaultChecked className="sr-only" />
+                                            <User className="w-6 h-6 text-slate-400 mb-2" />
+                                            <span className="font-semibold text-sm">Empleado</span>
+                                            <span className="text-xs text-slate-500 text-center mt-1">Solo carga y ve movimientos fiscales.</span>
+                                        </label>
+
+                                        <label className="relative flex flex-col items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all">
+                                            <input type="radio" name="role" value="admin" className="sr-only" />
+                                            <Shield className="w-6 h-6 text-slate-400 mb-2" />
+                                            <span className="font-semibold text-sm">Administrador</span>
+                                            <span className="text-xs text-slate-500 text-center mt-1">Gestiona equipo y ve reportes completos.</span>
+                                        </label>
+                                    </div>
                                 </div>
 
                                 {actionResult?.success === false && (
