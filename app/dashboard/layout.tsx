@@ -123,6 +123,23 @@ export default async function DashboardLayout({
                         </button>
                     </form>
                 </div>
+
+                {/* Footer del Sidebar */}
+                <div className="p-4 border-t border-white/10">
+
+                    {/* ... (código del perfil de usuario) ... */}
+
+                    <form action="/auth/signout" method="post">
+                        {/* ... botón salir ... */}
+                    </form>
+
+                    {/* NUEVO: Branding "Powered by Cajix" */}
+                    <div className="mt-6 pt-4 border-t border-white/5 text-center">
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider">Powered by</p>
+                        <p className="text-white/60 text-lg" style={{ fontFamily: 'var(--font-revalia)' }}>Cajix</p>
+                    </div>
+
+                </div>
             </aside>
 
             {/* CONTENIDO PRINCIPAL */}

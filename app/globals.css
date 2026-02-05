@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+.font-revalia {
+    font-family: var(--font-revalia);
+}
