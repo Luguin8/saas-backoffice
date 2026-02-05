@@ -18,10 +18,6 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
         .filter(t => t.type === 'expense') // Solo gastos
         .forEach(t => {
             const catName = t.categories?.name || 'Otros';
-            // Convertimos todo a una moneda base aproximada para el gráfico (ej: ARS)
-            // OJO: En un sistema real complejo, necesitarías cotización del día.
-            // Por simplicidad visual, asumimos que el gráfico muestra volumen de operaciones o mezclamos nominales (cuidado aquí).
-            // Para este MVP, graficaremos solo los movimientos en ARS para no mentir con la escala.
             if (t.currency === 'ARS') {
                 expensesByCategory[catName] = (expensesByCategory[catName] || 0) + Number(t.amount);
             }
@@ -30,7 +26,6 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
     const pieData = Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
 
     // 3. Balance Mensual (Barras)
-    // Agrupar por mes (simple)
     const balanceData = [
         {
             name: 'Total',
@@ -62,7 +57,8 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                                {/* FIX: Agregamos (value: any) y Number() para calmar a TypeScript */}
+                                <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString('es-AR')}`} />
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -81,7 +77,8 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="name" />
                             <YAxis />
-                            <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                            {/* FIX: Agregamos (value: any) y Number() para calmar a TypeScript */}
+                            <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString('es-AR')}`} />
                             <Legend />
                             <Bar dataKey="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="Egresos" fill="#f43f5e" radius={[4, 4, 0, 0]} />
