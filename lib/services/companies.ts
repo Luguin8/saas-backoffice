@@ -66,52 +66,6 @@ export const fetchModules = async (): Promise<Module[]> => {
     return data || [];
 };
 
-export const createOrganization = async (data: CreateCompanyDTO) => {
-    let logoUrl = null;
-
-    if (data.logoFile) {
-        logoUrl = await uploadLogo(data.logoFile, data.slug);
-    }
-
-    // Insertar Organización con Colores
-    const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-            name: data.name,
-            slug: data.slug,
-            logo_url: logoUrl,
-            base_maintenance_fee: data.maintenanceFee,
-            primary_color: data.primaryColor,     // <--- Guardamos color 1
-            secondary_color: data.secondaryColor, // <--- Guardamos color 2
-            status: 'active'
-        })
-        .select('id')
-        .single();
-
-    if (orgError) throw new Error(`Error creando organización: ${orgError.message}`);
-
-    const orgId = orgData.id;
-
-    // Insertar Módulos
-    if (data.selectedModules.length > 0) {
-        const modulesToInsert = data.selectedModules.map((moduleKey) => ({
-            organization_id: orgId,
-            module_key: moduleKey,
-            is_enabled: true,
-        }));
-
-        const { error: modulesError } = await supabase
-            .from('organization_modules')
-            .insert(modulesToInsert);
-
-        if (modulesError) {
-            throw new Error(`Error asignando módulos: ${modulesError.message}`);
-        }
-    }
-
-    return orgId;
-};
-
 export const fetchDashboardStats = async (): Promise<DashboardStats> => {
     // 1. Contar usuarios usando la función segura (o política permisiva)
     const { count: totalUsers, error: usersError } = await supabase

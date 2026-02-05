@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
@@ -16,10 +17,25 @@ export async function createTeamMemberAction(formData: FormData) {
 
     // 1. Obtener sesión del usuario actual (quien invita)
     // Usamos el token de la cookie para verificar identidad
-    const supabaseAuth = createClient(
+    const supabaseAuth = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll() } } }
+        {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll()
+                },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        )
+                    } catch {
+                        // ignore
+                    }
+                },
+            },
+        }
     );
 
     const { data: { user: currentUser } } = await supabaseAuth.auth.getUser();
@@ -79,7 +95,7 @@ export async function createTeamMemberAction(formData: FormData) {
             throw new Error(profileError.message);
         }
 
-        revalidatePath('/dashboard/team');
+        revalidatePath('/dashboard/teams');
         return {
             success: true,
             message: 'Usuario creado',
