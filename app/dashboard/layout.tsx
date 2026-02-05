@@ -10,6 +10,7 @@ import {
     Users
 } from 'lucide-react';
 import { DashboardProvider } from './context/DashboardContext';
+import CompanyLogo from '@/components/dashboard/CompanyLogo'; // <--- IMPORT NUEVO
 
 export default async function DashboardLayout({
     children,
@@ -64,24 +65,9 @@ export default async function DashboardLayout({
             <aside className="w-64 flex-shrink-0 flex flex-col transition-all duration-300 shadow-xl z-10"
                 style={{ backgroundColor: 'var(--brand-primary)' }}>
 
-                {/* LOGO DE LA EMPRESA */}
+                {/* LOGO DE LA EMPRESA (Usando el componente Cliente) */}
                 <div className="h-16 flex items-center px-6 border-b border-white/10">
-                    {org.logo_url ? (
-                        <img
-                            src={org.logo_url}
-                            alt={org.name}
-                            className="h-8 w-auto object-contain brightness-0 invert"
-                            onError={(e) => {
-                                // Fallback si la imagen falla
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                            }}
-                        />
-                    ) : null}
-                    {/* Texto de respaldo (se muestra si no hay logo o si falla la carga) */}
-                    <span className={`text-white font-bold text-lg truncate ${org.logo_url ? 'hidden' : ''}`}>
-                        {org.name}
-                    </span>
+                    <CompanyLogo url={org.logo_url} name={org.name} />
                 </div>
 
                 {/* NAVEGACIÓN */}
@@ -101,7 +87,6 @@ export default async function DashboardLayout({
                         <span className="font-medium">Reportes</span>
                     </Link>
 
-                    {/* CORRECCIÓN: Apuntar a 'teams' (plural) */}
                     <Link href="/dashboard/teams" className="flex items-center gap-3 px-3 py-2.5 text-white/70 rounded-lg hover:bg-white/10 transition-colors group">
                         <Users className="w-5 h-5 group-hover:text-white" />
                         <span className="font-medium">Equipo</span>
@@ -120,7 +105,7 @@ export default async function DashboardLayout({
                         </div>
                     </div>
 
-                    {/* CORRECCIÓN: Action apunta a la ruta creada en paso 1 */}
+                    {/* BOTÓN SALIR (Apunta a route.ts que crearemos en paso 3) */}
                     <form action="/auth/signout" method="post">
                         <button className="flex items-center gap-3 px-3 py-2 w-full text-white/60 hover:text-red-300 transition-colors">
                             <LogOut className="w-4 h-4" />

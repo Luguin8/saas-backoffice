@@ -18,10 +18,10 @@ export default async function Home() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Si no hay usuario, login. Si hay, dashboard.
   if (!user) {
     redirect("/login");
   } else {
-    // Aquí podrías verificar el rol si quisieras redirigir a /admin
     redirect("/dashboard");
   }
 }
