@@ -1,38 +1,43 @@
-export default function DashboardHome() {
+import { getDashboardStats } from '@/app/actions/get-dashboard-stats';
+import PrivacyToggle from '@/components/dashboard/PrivacyToggle';
+import StatsCards from '@/components/dashboard/StatsCards'; // Lo creamos abajo
+import { Plus, Minus } from 'lucide-react';
+
+export default async function DashboardPage() {
+    // 1. Obtenemos datos del servidor (Server Side)
+    const stats = await getDashboardStats();
+
     return (
-        <div className="space-y-6">
-            {/* Header de Bienvenida */}
-            <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-                <h1 className="text-2xl font-bold text-slate-900">Vista General</h1>
-                <p className="text-slate-500 mt-2">
-                    Bienvenido a tu panel de gestión. Aquí verás un resumen de tu actividad.
-                </p>
+        <div className="space-y-8 max-w-7xl mx-auto">
 
-                <div className="mt-6">
-                    <button
-                        className="px-4 py-2 text-white rounded-lg shadow-sm transition-opacity hover:opacity-90"
-                        style={{ backgroundColor: 'var(--brand-secondary)' }}
-                    >
-                        Nueva Acción Rápida
-                    </button>
+            {/* Header: Título + Botón de Privacidad */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Resumen Financiero</h1>
+                    <p className="text-slate-500">Estado de caja actual y movimientos del mes.</p>
                 </div>
+                <PrivacyToggle />
             </div>
 
-            {/* Grid de Widgets (Esqueleto) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Widget 1 */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-32 flex items-center justify-center text-slate-400">
-                    Widget de Métricas (Próximamente)
-                </div>
-                {/* Widget 2 */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-32 flex items-center justify-center text-slate-400">
-                    Accesos Directos
-                </div>
-                {/* Widget 3 */}
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-32 flex items-center justify-center text-slate-400">
-                    Estado del Sistema
-                </div>
+            {/* Tarjetas de Totales (Client Component para reaccionar al toggle) */}
+            <StatsCards stats={stats} />
+
+            {/* Accesos Rápidos (Centro de Acción - Fase 4 Placeholder) */}
+            <div className="grid grid-cols-2 gap-4">
+                <button className="flex flex-col items-center justify-center gap-2 p-6 bg-emerald-50 border border-emerald-100 rounded-xl hover:bg-emerald-100 transition-colors group">
+                    <div className="p-3 bg-emerald-200 rounded-full text-emerald-800 group-hover:scale-110 transition-transform">
+                        <Plus className="w-6 h-6" />
+                    </div>
+                    <span className="font-semibold text-emerald-900">Ingresar Dinero</span>
+                </button>
+                <button className="flex flex-col items-center justify-center gap-2 p-6 bg-rose-50 border border-rose-100 rounded-xl hover:bg-rose-100 transition-colors group">
+                    <div className="p-3 bg-rose-200 rounded-full text-rose-800 group-hover:scale-110 transition-transform">
+                        <Minus className="w-6 h-6" />
+                    </div>
+                    <span className="font-semibold text-rose-900">Retirar Dinero</span>
+                </button>
             </div>
+
         </div>
     );
 }

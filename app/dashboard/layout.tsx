@@ -10,6 +10,7 @@ import {
     LogOut,
     Users
 } from 'lucide-react';
+import { DashboardProvider } from './context/DashboardContext';
 
 export default async function DashboardLayout({
     children,
@@ -126,10 +127,12 @@ export default async function DashboardLayout({
 
             {/* CONTENIDO PRINCIPAL */}
             <main className="flex-1 flex flex-col overflow-hidden relative">
-                {/* El contenido de cada página se renderiza aquí */}
-                <div className="flex-1 overflow-auto p-6 md:p-8">
-                    {children}
-                </div>
+                {/* Envolvemos el contenido con el Provider */}
+                <DashboardProvider userRole={profile.role}>
+                    <div className="flex-1 overflow-auto p-6 md:p-8">
+                        {children}
+                    </div>
+                </DashboardProvider>
             </main>
         </div>
     );
