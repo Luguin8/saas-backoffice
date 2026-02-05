@@ -118,7 +118,6 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
         .from('organizations')
         .select(`
       *,
-      initial_password,
       organization_modules (
         module_key,
         modules (
@@ -126,7 +125,8 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
            monthly_price_adder
         )
       )
-    `);
+    `)
+        .order('created_at', { ascending: false }); // Ordenar por más nuevas
 
     if (error) throw new Error(error.message);
 
@@ -150,10 +150,16 @@ export const fetchCompaniesSummary = async (): Promise<CompanySummary[]> => {
             logo_url: org.logo_url,
             status: org.status,
             base_maintenance_fee: Number(org.base_maintenance_fee || 0),
+            primary_color: org.primary_color,
+            secondary_color: org.secondary_color,
+
+            // DATOS QUE FALTABAN:
+            initial_password: org.initial_password,
+            owner_email: org.owner_email || 'Sin asignar', // Leemos de la columna nueva
+
             modules_count: moduleNames.length,
             modules_names: moduleNames,
             total_monthly_cost: Number(org.base_maintenance_fee || 0) + modulesCost,
-            owner_email: 'pendiente@asignar.com'
         };
     });
 };

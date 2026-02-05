@@ -53,7 +53,8 @@ export async function createOrganizationAction(formData: any) {
                 primary_color: primaryColor,
                 secondary_color: secondaryColor,
                 status: 'active',
-                initial_password: generatedPassword // Guardamos para verla en el dashboard
+                initial_password: generatedPassword, // Guardamos para verla en el dashboard
+                owner_email: ownerEmail
             })
             .select('id')
             .single();
