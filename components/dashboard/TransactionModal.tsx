@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Plus, Save, Loader2, Check, Trash2 } from 'lucide-react';
 import { createTransactionAction, updateTransactionAction, deleteTransactionAction } from '@/app/actions/transaction-actions';
 import { createCategoryAction, createPayeeAction } from '@/app/actions/config-actions';
+import { useToast } from '@/app/dashboard/context/ToastContext'; // <--- IMPORTAR
 
 type Props = {
     isOpen: boolean;
@@ -12,21 +13,20 @@ type Props = {
     categories: any[];
     payees: any[];
     onSuccess: () => void;
-    initialData?: any; // <--- Nuevo: Para modo edición
+    initialData?: any;
 };
 
 export default function TransactionModal({ isOpen, onClose, type, categories: initialCategories, payees: initialPayees, onSuccess, initialData }: Props) {
+    const { showToast } = useToast(); // <--- HOOK
     const [loading, setLoading] = useState(false);
     const [categories, setCategories] = useState(initialCategories);
     const [payees, setPayees] = useState(initialPayees);
 
-    // Estados para creación rápida
     const [newCatName, setNewCatName] = useState('');
     const [showNewCatInput, setShowNewCatInput] = useState(false);
     const [newPayeeName, setNewPayeeName] = useState('');
     const [showNewPayeeInput, setShowNewPayeeInput] = useState(false);
 
-    // Estados del Formulario (Controlados para permitir edición)
     const [formData, setFormData] = useState({
         amount: '',
         currency: 'ARS',
@@ -37,11 +37,9 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
         is_fiscal: false
     });
 
-    // Efecto: Resetear o Cargar datos al abrir
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                // Modo Edición
                 setFormData({
                     amount: initialData.amount,
                     currency: initialData.currency,
@@ -52,7 +50,6 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
                     is_fiscal: initialData.is_fiscal
                 });
             } else {
-                // Modo Creación (Reset)
                 setFormData({
                     amount: '',
                     currency: 'ARS',
@@ -77,7 +74,6 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
         setLoading(true);
 
         const payload = new FormData();
-        // Campos manuales
         payload.set('type', type);
         payload.set('amount', formData.amount);
         payload.set('currency', formData.currency);
@@ -98,10 +94,11 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
         setLoading(false);
 
         if (res.success) {
+            onClose(); // Cerrar antes del toast para que se vea limpio
+            showToast(initialData ? 'Movimiento actualizado' : 'Movimiento registrado con éxito', 'success'); // <--- TOAST VERDE
             onSuccess();
-            onClose();
         } else {
-            alert('Error: ' + res.message);
+            showToast(res.message || 'Error al guardar', 'error'); // <--- TOAST ROJO
         }
     };
 
@@ -111,13 +108,15 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
         const res = await deleteTransactionAction(initialData.id);
         setLoading(false);
         if (res.success) {
-            onSuccess();
             onClose();
+            showToast('Movimiento eliminado', 'success'); // <--- TOAST
+            onSuccess();
         } else {
-            alert(res.message);
+            showToast(res.message, 'error');
         }
     };
 
+    // ... (Funciones auxiliares handleQuickCategory y handleQuickPayee igual que antes)
     const handleQuickCategory = async () => {
         if (!newCatName.trim()) return;
         const res = await createCategoryAction(newCatName, type);
@@ -147,7 +146,6 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
 
-                {/* Header */}
                 <div className={`px-6 py-4 flex justify-between items-center bg-${colorClass}-50 border-b border-${colorClass}-100`}>
                     <h2 className={`text-lg font-bold text-${colorClass}-700`}>
                         {initialData ? 'Editar Movimiento' : (isExpense ? 'Registrar Salida' : 'Registrar Ingreso')}
@@ -157,11 +155,9 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
                     </button>
                 </div>
 
-                {/* Body */}
                 <div className="flex-1 overflow-y-auto p-6">
                     <form onSubmit={handleSubmit} className="space-y-5">
 
-                        {/* Monto y Moneda */}
                         <div className="grid grid-cols-3 gap-4">
                             <div className="col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Monto Total</label>
@@ -243,7 +239,6 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
                             )}
                         </div>
 
-                        {/* Fecha y Descripción */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
@@ -255,7 +250,6 @@ export default function TransactionModal({ isOpen, onClose, type, categories: in
                             </div>
                         </div>
 
-                        {/* Switch Fiscal */}
                         <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex items-center justify-between">
                             <div>
                                 <span className="text-sm font-semibold text-slate-800 block">¿Es Fiscal? (Blanco)</span>

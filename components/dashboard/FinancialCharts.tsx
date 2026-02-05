@@ -2,20 +2,19 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useDashboard } from '@/app/dashboard/context/DashboardContext';
+import { formatMoney } from '@/lib/utils/format'; // <--- IMPORTAR
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function FinancialCharts({ transactions }: { transactions: any[] }) {
     const { showRealNumbers } = useDashboard();
 
-    // 1. Filtrar datos según privacidad
     const visibleData = transactions.filter(t => showRealNumbers || t.is_fiscal);
 
-    // 2. Agrupar Egresos por Categoría
     const expensesByCategory: Record<string, number> = {};
 
     visibleData
-        .filter(t => t.type === 'expense') // Solo gastos
+        .filter(t => t.type === 'expense')
         .forEach(t => {
             const catName = t.categories?.name || 'Otros';
             if (t.currency === 'ARS') {
@@ -25,7 +24,6 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
 
     const pieData = Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
 
-    // 3. Balance Mensual (Barras)
     const balanceData = [
         {
             name: 'Total',
@@ -37,7 +35,6 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
-            {/* Gráfico de Gastos por Categoría */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4 w-full text-left">Gastos por Categoría (ARS)</h3>
                 {pieData.length > 0 ? (
@@ -57,8 +54,7 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                {/* FIX: Agregamos (value: any) y Number() para calmar a TypeScript */}
-                                <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString('es-AR')}`} />
+                                <Tooltip formatter={(value: any) => formatMoney(Number(value), 'ARS')} />
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -68,7 +64,6 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
                 )}
             </div>
 
-            {/* Gráfico de Barras (Ingresos vs Egresos) */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="text-lg font-semibold text-slate-800 mb-4">Balance General (ARS)</h3>
                 <div className="h-64 w-full">
@@ -77,8 +72,7 @@ export default function FinancialCharts({ transactions }: { transactions: any[] 
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="name" />
                             <YAxis />
-                            {/* FIX: Agregamos (value: any) y Number() para calmar a TypeScript */}
-                            <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString('es-AR')}`} />
+                            <Tooltip formatter={(value: any) => formatMoney(Number(value), 'ARS')} />
                             <Legend />
                             <Bar dataKey="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="Egresos" fill="#f43f5e" radius={[4, 4, 0, 0]} />

@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { useDashboard } from '@/app/dashboard/context/DashboardContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Search, Filter, ArrowUpRight, ArrowDownLeft, EyeOff } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownLeft, EyeOff } from 'lucide-react';
 import TransactionModal from './TransactionModal';
 import { useRouter } from 'next/navigation';
+import { formatMoney } from '@/lib/utils/format'; // Importar formateador
 
 type Props = {
     transactions: any[];
@@ -18,23 +19,13 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
     const { showRealNumbers, canViewRealNumbers } = useDashboard();
     const router = useRouter();
 
-    // Filtros locales
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
-
-    // Estado para el modal de edición
     const [editingTx, setEditingTx] = useState<any | null>(null);
 
-    // Lógica de Filtrado
     const filteredTransactions = transactions.filter(t => {
-        // 1. Filtro de Privacidad (El Ojo)
-        // Si NO tengo activado "Ver Reales", oculto los que no son fiscales (Negros)
         if (!showRealNumbers && !t.is_fiscal) return false;
-
-        // 2. Filtro de Tipo
         if (filterType !== 'all' && t.type !== filterType) return false;
-
-        // 3. Filtro de Buscador
         const searchLower = searchTerm.toLowerCase();
         return (
             t.description?.toLowerCase().includes(searchLower) ||
@@ -45,8 +36,6 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
     });
 
     const handleRowClick = (tx: any) => {
-        // Solo el dueño o admin debería poder editar, o todos (según tu regla de negocio).
-        // Por ahora permitimos abrir, el backend valida permisos de update.
         setEditingTx(tx);
     };
 
@@ -58,7 +47,6 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
     return (
         <div className="space-y-4">
 
-            {/* Barra de Herramientas */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -84,7 +72,6 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
                 </div>
             </div>
 
-            {/* Tabla */}
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
@@ -93,6 +80,7 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
                                 <th className="px-6 py-4 font-medium">Fecha</th>
                                 <th className="px-6 py-4 font-medium">Motivo / Categoría</th>
                                 <th className="px-6 py-4 font-medium">Quién</th>
+                                {/* ALINEADO A LA DERECHA */}
                                 <th className="px-6 py-4 font-medium text-right">Monto</th>
                                 <th className="px-6 py-4 font-medium text-center">Estado</th>
                             </tr>
@@ -127,10 +115,11 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
                                             </span>
                                         </div>
                                     </td>
+                                    {/* ALINEADO A LA DERECHA + FORMATO */}
                                     <td className="px-6 py-4 text-right">
                                         <div className={`font-bold flex items-center justify-end gap-1 ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>
                                             {tx.type === 'income' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4 text-slate-400" />}
-                                            {tx.currency === 'USD' ? 'USD' : '$'} {Number(tx.amount).toLocaleString('es-AR')}
+                                            {formatMoney(Number(tx.amount), tx.currency)}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
@@ -139,7 +128,6 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
                                                 Fiscal
                                             </span>
                                         ) : (
-                                            // Solo el dueño ve la etiqueta "Negro", aunque esté viendo la fila
                                             canViewRealNumbers && (
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
                                                     <EyeOff className="w-3 h-3" /> Interno
@@ -161,7 +149,6 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
                 </div>
             </div>
 
-            {/* Modal de Edición */}
             {editingTx && (
                 <TransactionModal
                     isOpen={!!editingTx}
@@ -170,7 +157,7 @@ export default function MovementsTable({ transactions, categories, payees }: Pro
                     categories={categories}
                     payees={payees}
                     onSuccess={handleEditSuccess}
-                    initialData={editingTx} // Pasamos los datos para editar
+                    initialData={editingTx}
                 />
             )}
 
