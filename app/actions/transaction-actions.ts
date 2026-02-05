@@ -92,3 +92,45 @@ export async function deleteTransactionAction(id: string) {
         return { success: false, message: error.message };
     }
 }
+
+export async function updateTransactionAction(formData: FormData) {
+    const supabase = await getSupabaseClient();
+
+    const id = formData.get('id') as string;
+    if (!id) return { success: false, message: 'ID requerido' };
+
+    // Extraer datos (Igual que en create)
+    const amount = parseFloat(formData.get('amount') as string);
+    const description = formData.get('description') as string;
+    const currency = formData.get('currency') as string;
+    const type = formData.get('type') as string;
+    const is_fiscal = formData.get('is_fiscal') === 'on';
+    const category_id = formData.get('category_id') as string;
+    const payee_id = formData.get('payee_id') as string;
+    const date = formData.get('date') as string;
+
+    try {
+        // El Trigger de PostgreSQL se encargará de guardar la copia vieja en 'transaction_audit'
+        const { error } = await supabase
+            .from('transactions')
+            .update({
+                amount,
+                description,
+                currency,
+                type,
+                is_fiscal,
+                category_id: category_id || null,
+                payee_id: payee_id || null,
+                transaction_date: date
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/movements');
+        return { success: true, message: 'Movimiento actualizado' };
+    } catch (error: any) {
+        return { success: false, message: error.message };
+    }
+}
