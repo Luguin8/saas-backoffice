@@ -9,17 +9,14 @@ import {
     createPublicAppointment,
     getPublicProfessionals
 } from '@/app/actions/appointment-actions'
-import { Calendar, Clock, CheckCircle, User, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, User, ChevronRight, MapPin, Phone } from 'lucide-react'
 
-// Definir tipos básicos para evitar errores de TS
 interface Service {
     id: string;
     name: string;
     price: number;
     duration_minutes: number;
 }
-
-const [professionals, setProfessionals] = useState<any[]>([])
 
 export default function PublicBookingPage() {
     const params = useParams()
@@ -28,6 +25,8 @@ export default function PublicBookingPage() {
     const [step, setStep] = useState(1)
     const [org, setOrg] = useState<any>(null)
     const [services, setServices] = useState<Service[]>([])
+    // CORREGIDO: Ahora está ADENTRO del componente
+    const [professionals, setProfessionals] = useState<any[]>([])
 
     // Selecciones
     const [selectedService, setSelectedService] = useState<Service | null>(null)
@@ -42,14 +41,21 @@ export default function PublicBookingPage() {
 
     useEffect(() => {
         async function load() {
-            const orgData = await getPublicOrganization(slug)
-            if (orgData) {
-                setOrg(orgData)
-                // Inyectamos variables CSS para colores
-                if (orgData.primary_color) document.documentElement.style.setProperty('--brand-primary', orgData.primary_color)
+            try {
+                const orgData = await getPublicOrganization(slug)
+                if (orgData) {
+                    setOrg(orgData)
+                    if (orgData.primary_color) document.documentElement.style.setProperty('--brand-primary', orgData.primary_color)
 
-                const srvData = await getPublicServices(orgData.id)
-                setServices(srvData || [])
+                    const srvData = await getPublicServices(orgData.id)
+                    setServices(srvData || [])
+
+                    // Cargamos profesionales también
+                    const profData = await getPublicProfessionals(orgData.id)
+                    setProfessionals(profData || [])
+                }
+            } catch (error) {
+                console.error("Error cargando datos públicos:", error)
             }
         }
         load()
@@ -60,16 +66,14 @@ export default function PublicBookingPage() {
         if (selectedDate && selectedService && org) {
             loadSlots()
         }
-    }, [selectedDate, selectedService, selectedProfessional])
+    }, [selectedDate, selectedService, selectedProfessional]) // eslint-disable-line react-hooks/exhaustive-deps
 
     async function loadSlots() {
         setLoadingSlots(true)
-        // Aquí iría la lógica real filtrando por ID de profesional si se eligió uno específico
-        // Por ahora usamos la lógica general
         const dayStart = `${selectedDate}T00:00:00`
         const dayEnd = `${selectedDate}T23:59:59`
 
-        // Generación simple de slots 9-20hs
+        // Generación simple de slots 9-20hs (Idealmente esto vendría de la config de horarios de la empresa)
         const possibleSlots = []
         for (let h = 9; h < 20; h++) {
             possibleSlots.push(`${h.toString().padStart(2, '0')}:00`)
@@ -80,8 +84,10 @@ export default function PublicBookingPage() {
 
         const free = possibleSlots.filter(slot => {
             const slotTime = new Date(`${selectedDate}T${slot}:00`)
-            // Aquí filtraríamos también por profesional si el turno guardado tiene profile_id
+
             const isBusy = busy.some((b: any) => {
+                // Si el turno ocupado es de OTRO profesional, no me bloquea a mí (a menos que el cliente quiera bloquear todo)
+                // Aquí asumimos bloqueo simple por ahora.
                 const busyStart = new Date(b.start_time)
                 const busyEnd = new Date(b.end_time)
                 return slotTime >= busyStart && slotTime < busyEnd
@@ -104,130 +110,174 @@ export default function PublicBookingPage() {
             await createPublicAppointment({
                 organization_id: org.id,
                 service_id: selectedService.id,
-                // Si eligió "Cualquiera" (id 1), mandamos null, sino el ID del doc
-                profile_id: selectedProfessional?.id === '1' ? null : selectedProfessional.id,
+                profile_id: selectedProfessional?.id === '1' ? null : selectedProfessional?.id,
                 patient_name: formData.name,
                 patient_email: formData.email,
                 patient_phone: formData.phone,
                 start_time: startTime,
                 end_time: endObj.toISOString(),
-                status: 'confirmed'
+                status: 'confirmed' // O 'pending' si quisieras aprobación manual
             })
 
-            setStep(5) // Paso final
+            setStep(5)
         } catch (error) {
+            console.error(error)
             alert('Error al reservar. Intente nuevamente.')
         } finally {
             setSubmitting(false)
         }
     }
 
-    if (!org) return <div className="min-h-screen flex items-center justify-center">Cargando...</div>
+    if (!org) return <div className="min-h-screen flex items-center justify-center text-slate-500"><Clock className="animate-spin mr-2" /> Cargando...</div>
 
-    const primaryColor = org.primary_color || '#000'
+    const primaryColor = org.primary_color || '#0f172a' // Fallback a slate-900
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center py-10 px-4 font-sans">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center py-8 px-4 font-sans text-slate-900">
+            <div className="bg-white w-full max-w-md rounded-3xl shadow-xl overflow-hidden border border-slate-100">
 
                 {/* Header Branding */}
-                <div className="p-6 text-center border-b border-gray-100 relative">
+                <div className="p-6 text-center border-b border-slate-100 relative bg-white">
                     {step > 1 && step < 5 && (
-                        <button onClick={() => setStep(s => s - 1)} className="absolute left-6 top-7 text-sm text-gray-400 hover:text-gray-900">
+                        <button onClick={() => setStep(s => s - 1)} className="absolute left-6 top-7 text-sm text-slate-400 hover:text-slate-800 transition-colors font-medium">
                             ← Volver
                         </button>
                     )}
-                    <h1 className="text-xl font-bold text-gray-900 mt-2">{org.name}</h1>
+                    {org.logo_url && <img src={org.logo_url} alt="Logo" className="h-12 w-auto mx-auto mb-3 object-contain" />}
+                    <h1 className="text-xl font-bold text-slate-900 tracking-tight">{org.name}</h1>
+                    <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-semibold">Reserva de Turnos</p>
                 </div>
 
-                <div className="p-6">
+                <div className="p-6 min-h-[400px]">
 
                     {/* PASO 1: SERVICIOS */}
                     {step === 1 && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-4">¿Qué necesitas?</h2>
-                            {services.map((srv) => (
-                                <button
-                                    key={srv.id}
-                                    onClick={() => { setSelectedService(srv); setStep(2) }}
-                                    className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-gray-300 hover:bg-white hover:shadow-md transition-all group flex justify-between items-center"
-                                >
-                                    <div>
-                                        <span className="font-medium text-gray-900 block">{srv.name}</span>
-                                        <span className="text-sm text-gray-500 flex items-center gap-1 mt-1">
-                                            <Clock size={14} /> {srv.duration_minutes} min
-                                        </span>
-                                    </div>
-                                    <ChevronRight className="text-gray-300 group-hover:text-gray-600" size={20} />
-                                </button>
-                            ))}
+                            <h2 className="text-lg font-semibold text-slate-800 mb-1">Selecciona un servicio</h2>
+                            <p className="text-sm text-slate-500 mb-6">Elige el tratamiento o consulta que deseas realizar.</p>
+
+                            <div className="space-y-3">
+                                {services.length === 0 ? (
+                                    <p className="text-center text-slate-400 py-8 text-sm">No hay servicios disponibles.</p>
+                                ) : services.map((srv) => (
+                                    <button
+                                        key={srv.id}
+                                        onClick={() => { setSelectedService(srv); setStep(2) }}
+                                        className="w-full text-left p-4 rounded-xl border border-slate-100 bg-slate-50 hover:border-slate-300 hover:bg-white hover:shadow-lg hover:shadow-slate-100 transition-all group flex justify-between items-center"
+                                    >
+                                        <div>
+                                            <span className="font-semibold text-slate-900 block">{srv.name}</span>
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <span className="text-xs font-medium text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                                                    <Clock size={12} /> {srv.duration_minutes} min
+                                                </span>
+                                                {srv.price > 0 && (
+                                                    <span className="text-xs font-bold text-emerald-600">
+                                                        ${srv.price.toLocaleString()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-300 group-hover:text-slate-600 group-hover:border-slate-300 transition-colors">
+                                            <ChevronRight size={18} />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 
                     {/* PASO 2: PROFESIONALES */}
                     {step === 2 && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-4">Selecciona Profesional</h2>
+                            <h2 className="text-lg font-semibold text-slate-800 mb-1">Selecciona un profesional</h2>
+                            <p className="text-sm text-slate-500 mb-6">¿Con quién te gustaría atenderte?</p>
 
-                            {/* CORRECCIÓN: Usamos 'professionals' (el estado) en vez de MOCK_PROFESSIONALS */}
-                            {professionals.map((prof: any) => ( // Agregamos :any para callar a TS
+                            <div className="space-y-3">
+                                {/* Opción "Cualquiera" */}
                                 <button
-                                    key={prof.id}
-                                    onClick={() => { setSelectedProfessional(prof); setStep(3) }}
-                                    className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-gray-300 hover:bg-white hover:shadow-md transition-all flex items-center gap-3"
+                                    onClick={() => { setSelectedProfessional({ id: '1', full_name: 'Primer disponible', role: 'system' }); setStep(3) }}
+                                    className="w-full text-left p-3 rounded-xl border border-slate-100 bg-slate-50 hover:border-slate-300 hover:bg-white hover:shadow-md transition-all flex items-center gap-3"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 overflow-hidden">
-                                        {prof.avatar_url ? (
-                                            <img src={prof.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
-                                        ) : (
-                                            <User size={20} />
-                                        )}
+                                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+                                        <Calendar size={18} />
                                     </div>
-                                    <span className="font-medium text-gray-900">{prof.full_name}</span>
+                                    <span className="font-medium text-slate-700">Cualquiera disponible</span>
                                 </button>
-                            ))}
+
+                                {professionals.map((prof: any) => (
+                                    <button
+                                        key={prof.id}
+                                        onClick={() => { setSelectedProfessional(prof); setStep(3) }}
+                                        className="w-full text-left p-3 rounded-xl border border-slate-100 bg-slate-50 hover:border-slate-300 hover:bg-white hover:shadow-md transition-all flex items-center gap-3"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 overflow-hidden border border-white shadow-sm">
+                                            {prof.avatar_url ? (
+                                                <img src={prof.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
+                                            ) : (
+                                                <User size={18} />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-slate-900 block">{prof.full_name}</span>
+                                            <span className="text-xs text-slate-400">Especialista</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 
                     {/* PASO 3: FECHA */}
                     {step === 3 && (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-4">Elige fecha y hora</h2>
+                            <h2 className="text-lg font-semibold text-slate-800 mb-4">Elige fecha y hora</h2>
 
-                            <input
-                                type="date"
-                                className="w-full p-3 border border-gray-200 rounded-lg mb-6 outline-none focus:ring-2 focus:ring-opacity-50"
-                                style={{ '--tw-ring-color': primaryColor } as any}
-                                min={new Date().toISOString().split('T')[0]}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                            />
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha</label>
+                                <input
+                                    type="date"
+                                    className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent font-medium text-slate-700"
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                />
+                            </div>
 
                             {selectedDate && (
-                                <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-                                    {loadingSlots ? (
-                                        <p className="col-span-3 text-center text-gray-400 py-4">Buscando huecos...</p>
-                                    ) : availableSlots.map((slot) => (
-                                        <button
-                                            key={slot}
-                                            onClick={() => { setSelectedTime(slot); setStep(4) }}
-                                            className="py-2 px-1 text-sm border rounded-lg hover:text-white transition-colors"
-                                            style={{
-                                                borderColor: primaryColor,
-                                                color: primaryColor,
-                                                // Al hacer hover, cambiamos el fondo (manejado via CSS classes o style inline condicional complejo, aqui simplificado)
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.backgroundColor = primaryColor;
-                                                e.currentTarget.style.color = 'white';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                                e.currentTarget.style.color = primaryColor;
-                                            }}
-                                        >
-                                            {slot}
-                                        </button>
-                                    ))}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Horarios Disponibles</label>
+                                    <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                                        {loadingSlots ? (
+                                            <div className="col-span-3 py-8 flex flex-col items-center justify-center text-slate-400 gap-2">
+                                                <Clock className="animate-spin w-5 h-5" />
+                                                <span className="text-sm">Buscando huecos...</span>
+                                            </div>
+                                        ) : availableSlots.length === 0 ? (
+                                            <div className="col-span-3 py-8 text-center text-sm text-slate-400 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
+                                                No hay horarios para esta fecha.
+                                            </div>
+                                        ) : availableSlots.map((slot) => (
+                                            <button
+                                                key={slot}
+                                                onClick={() => { setSelectedTime(slot); setStep(4) }}
+                                                className="py-2.5 px-1 text-sm font-medium border rounded-lg transition-all hover:scale-105 active:scale-95"
+                                                style={{
+                                                    borderColor: primaryColor,
+                                                    color: primaryColor,
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = primaryColor;
+                                                    e.currentTarget.style.color = 'white';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                    e.currentTarget.style.color = primaryColor;
+                                                }}
+                                            >
+                                                {slot}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -235,49 +285,77 @@ export default function PublicBookingPage() {
 
                     {/* PASO 4: DATOS FINAL */}
                     {step === 4 && (
-                        <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-lg font-semibold text-gray-800 mb-2">Confirmar Datos</h2>
+                        <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <h2 className="text-lg font-semibold text-slate-800">Confirmar Datos</h2>
 
-                            <div className="bg-slate-50 p-4 rounded-lg text-sm space-y-1 mb-4 border border-slate-100">
-                                <p><span className="text-slate-500">Servicio:</span> <span className="font-medium">{selectedService?.name}</span></p>
-                                <p><span className="text-slate-500">Profesional:</span> <span className="font-medium">{selectedProfessional?.name}</span></p>
-                                <p><span className="text-slate-500">Fecha:</span> <span className="font-medium">{selectedDate} {selectedTime}hs</span></p>
+                            <div className="bg-slate-50 p-5 rounded-2xl text-sm space-y-3 border border-slate-100">
+                                <div className="flex justify-between border-b border-slate-200 pb-2">
+                                    <span className="text-slate-500">Servicio</span>
+                                    <span className="font-semibold text-slate-900">{selectedService?.name}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-slate-200 pb-2">
+                                    <span className="text-slate-500">Profesional</span>
+                                    <span className="font-semibold text-slate-900">{selectedProfessional?.full_name || 'Cualquiera'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500">Cuándo</span>
+                                    <span className="font-semibold text-slate-900">{selectedDate} a las {selectedTime}hs</span>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Nombre Completo</label>
-                                <input required type="text" className="w-full p-3 border border-gray-200 rounded-lg"
-                                    value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">WhatsApp</label>
-                                <input required type="tel" className="w-full p-3 border border-gray-200 rounded-lg"
-                                    value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre Completo</label>
+                                    <input required type="text" placeholder="Ej: Juan Pérez" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                        value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email (Opcional)</label>
+                                    <input type="email" placeholder="juan@ejemplo.com" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                        value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono / WhatsApp</label>
+                                    <input required type="tel" placeholder="Ej: 11 1234 5678" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                        value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                                </div>
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={submitting}
-                                className="w-full mt-4 py-3 rounded-xl text-white font-bold shadow-lg hover:opacity-90 transition-all"
+                                className="w-full mt-2 py-3.5 rounded-xl text-white font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:hover:translate-y-0"
                                 style={{ backgroundColor: primaryColor }}
                             >
-                                {submitting ? 'Confirmando...' : 'Confirmar Reserva'}
+                                {submitting ? (
+                                    <span className="flex items-center justify-center gap-2"><Clock size={18} className="animate-spin" /> Procesando...</span>
+                                ) : 'Confirmar Reserva'}
                             </button>
                         </form>
                     )}
 
                     {/* PASO 5: ÉXITO */}
                     {step === 5 && (
-                        <div className="text-center py-10 animate-in zoom-in duration-300">
-                            <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                                <CheckCircle size={40} className="text-green-600" />
+                        <div className="text-center py-12 animate-in zoom-in duration-300 flex flex-col items-center">
+                            <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                <CheckCircle size={48} className="text-emerald-500" />
                             </div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Listo!</h2>
-                            <p className="text-gray-600">Tu turno ha sido agendado con éxito.</p>
+                            <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Reserva Exitosa!</h2>
+                            <p className="text-slate-500 max-w-xs mx-auto mb-8">
+                                Te esperamos el <strong>{selectedDate}</strong> a las <strong>{selectedTime}hs</strong>.
+                            </p>
+
+                            <button onClick={() => window.location.reload()} className="text-slate-400 text-sm hover:text-slate-600 underline">
+                                Hacer otra reserva
+                            </button>
                         </div>
                     )}
 
                 </div>
+            </div>
+
+            <div className="mt-8 text-center text-slate-300 text-xs">
+                Powered by <strong>Cajix</strong>
             </div>
         </div>
     )
