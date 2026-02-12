@@ -96,7 +96,7 @@ export async function createOrganizationAction(formData: any) {
         // D. Crear Perfil y Vincular
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
-            .insert({
+            .upsert({
                 id: userId,
                 organization_id: orgId,
                 role: 'owner', // Rol dueño
