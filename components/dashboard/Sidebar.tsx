@@ -91,14 +91,18 @@ export default function Sidebar() {
                                 key={item.href}
                                 href={item.href}
                                 onClick={closeMobileMenu}
-                                style={isActive ? { backgroundColor: primaryColor, color: 'white' } : {}}
+                                style={isActive ? {
+                                    backgroundColor: primaryColor,
+                                    color: 'white',
+                                    borderLeft: '4px solid var(--brand-secondary, transparent)' // <--- AQUÍ USAMOS EL COLOR SECUNDARIO
+                                } : {}}
                                 className={`
-                  flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium text-sm
-                  ${isActive
-                                        ? 'shadow-md'
+      flex items-center gap-3 px-4 py-3 rounded-r-xl transition-all duration-200 group font-medium text-sm border-l-4 border-transparent
+      ${isActive
+                                        ? 'shadow-md rounded-l-none' // Quitamos redondeo izq para que el borde pegue
                                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                                     }
-                `}
+    `}
                             >
                                 <item.icon
                                     size={20}

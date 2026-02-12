@@ -1,23 +1,34 @@
-'use client';
-import { useState } from 'react';
+import { Building2 } from 'lucide-react'
 
-export default function CompanyLogo({ url, name }: { url: string | null, name: string }) {
-    const [error, setError] = useState(false);
+interface CompanyLogoProps {
+    url?: string | null
+    name: string
+}
 
-    if (!url || error) {
-        return <span className="text-white font-bold text-lg truncate">{name}</span>;
+export default function CompanyLogo({ url, name }: CompanyLogoProps) {
+    if (url) {
+        return (
+            <div className="flex items-center gap-3">
+                <img
+                    src={url}
+                    alt={name}
+                    className="h-10 w-10 object-contain rounded-lg" // object-contain evita recortes feos
+                />
+                <span className="font-bold text-lg text-slate-900 truncate max-w-[140px]" title={name}>
+                    {name}
+                </span>
+            </div>
+        )
     }
 
     return (
-        <div className="flex items-center gap-2">
-            {/* Renderizamos la imagen tal cual. Agregamos bg-white/10 por si es un logo negro en fondo oscuro */}
-            <img
-                src={url}
-                alt={name}
-                className="h-10 w-auto object-contain p-1 rounded bg-white/5"
-                onError={() => setError(true)}
-            />
-            <span className="text-white font-bold text-lg truncate hidden md:block">{name}</span>
+        <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                <Building2 size={20} className="text-slate-500" />
+            </div>
+            <span className="font-bold text-lg text-slate-900 truncate max-w-[140px]" title={name}>
+                {name}
+            </span>
         </div>
-    );
+    )
 }
