@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { DashboardProvider } from '@/app/dashboard/context/DashboardContext';
 import { ToastProvider } from '@/app/dashboard/context/ToastContext';
 import Sidebar from '@/components/dashboard/Sidebar';
@@ -10,12 +9,9 @@ type Props = {
     children: React.ReactNode;
     org: any;
     profile: any;
-    activeModules: any[];
 };
 
-export default function DashboardClientLayout({ children, org, profile, activeModules }: Props) {
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-
+export default function DashboardClientLayout({ children, org, profile }: Props) {
     // Estilos de marca dinámicos
     const brandStyle = {
         '--brand-primary': org.primary_color || '#0f172a',
@@ -23,32 +19,28 @@ export default function DashboardClientLayout({ children, org, profile, activeMo
     } as React.CSSProperties;
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden" style={brandStyle}>
+        <DashboardProvider organization={org} profile={profile} userRole={profile.role}>
+            <ToastProvider>
+                <div className="flex h-screen bg-slate-50 overflow-hidden" style={brandStyle}>
 
-            {/* 1. Sidebar Inteligente (Maneja PC y Móvil internamente) */}
-            <Sidebar
-                org={org}
-                userProfile={profile}
-                activeModules={activeModules}
-                isOpen={sidebarOpen}
-                onClose={() => setSidebarOpen(false)}
-            />
+                    {/* 1. Sidebar: Ya no necesita props, usa el DashboardContext internamente */}
+                    <Sidebar />
 
-            {/* 2. Área de Contenido */}
-            <main className="flex-1 flex flex-col w-full relative overflow-hidden">
+                    {/* 2. Área de Contenido */}
+                    <main className="flex-1 flex flex-col w-full relative overflow-hidden">
 
-                {/* Header: Solo visible en móvil */}
-                <MobileHeader onOpen={() => setSidebarOpen(true)} org={org} />
+                        {/* Header: Ya no necesita props, usa el DashboardContext internamente */}
+                        <MobileHeader />
 
-                {/* Contenido Scrollable */}
-                <DashboardProvider userRole={profile.role}>
-                    <ToastProvider>
+                        {/* Contenido Scrollable */}
                         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth">
-                            {children}
+                            <div className="max-w-7xl mx-auto w-full">
+                                {children}
+                            </div>
                         </div>
-                    </ToastProvider>
-                </DashboardProvider>
-            </main>
-        </div>
+                    </main>
+                </div>
+            </ToastProvider>
+        </DashboardProvider>
     );
 }
