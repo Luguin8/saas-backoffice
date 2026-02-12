@@ -1,129 +1,139 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
     LayoutDashboard,
-    ArrowLeftRight,
+    ArrowRightLeft,
     PieChart,
     Users,
+    Settings,
     LogOut,
-    HelpCircle,
-    Box,
-    X
-} from 'lucide-react';
-import CompanyLogo from './CompanyLogo';
+    CalendarDays
+} from 'lucide-react'
+import { useDashboard } from '@/app/dashboard/context/DashboardContext'
+import CompanyLogo from './CompanyLogo'
 
-type SidebarProps = {
-    org: any;
-    userProfile: any;
-    activeModules: any[];
-    isOpen?: boolean;        // Nuevo prop
-    onClose?: () => void;    // Nuevo prop
-};
+export default function Sidebar() {
+    const pathname = usePathname()
+    const { organization, profile } = useDashboard()
 
-export default function Sidebar({ org, userProfile, activeModules, isOpen = false, onClose }: SidebarProps) {
-    const pathname = usePathname();
+    if (!organization) return null
+
+    // Verificar módulos activos
+    const modules = organization.organization_modules || []
+    const stockModule = modules.find((m: any) => m.module_key === 'stock' && m.is_enabled)
+    const turneroModule = modules.find((m: any) => m.module_key === 'turnero' && m.is_enabled)
 
     const menuItems = [
-        { label: 'Tablero Principal', href: '/dashboard', icon: LayoutDashboard },
-        { label: 'Movimientos', href: '/dashboard/movements', icon: ArrowLeftRight },
-        { label: 'Reportes', href: '/dashboard/reports', icon: PieChart },
-        { label: 'Equipo', href: '/dashboard/teams', icon: Users },
-    ];
-
-    if (activeModules) {
-        const stockModule = activeModules.find((m: any) => m.module_key === 'stock');
-        if (stockModule) {
-            menuItems.push({ label: 'Inventario', href: '/dashboard/stock', icon: Box });
+        {
+            name: 'Panel Principal',
+            href: '/dashboard',
+            icon: LayoutDashboard,
+            exact: true
+        },
+        {
+            name: 'Movimientos',
+            href: '/dashboard/movements',
+            icon: ArrowRightLeft
+        },
+        {
+            name: 'Reportes',
+            href: '/dashboard/reports',
+            icon: PieChart
+        },
+        {
+            name: 'Equipo',
+            href: '/dashboard/teams',
+            icon: Users
+        },
+        {
+            name: 'Configuración',
+            href: '/admin/settings',
+            icon: Settings
         }
+    ]
+
+    // Inyectar módulo de Turnos si está activo
+    if (turneroModule) {
+        // Insertamos después de Movimientos (índice 2)
+        menuItems.splice(2, 0, {
+            name: 'Turnos',
+            href: '/dashboard/appointments',
+            icon: CalendarDays
+        })
+    }
+
+    // Lógica de Stock (si existiera en el futuro)
+    if (stockModule) {
+        // Lógica futura
     }
 
     return (
-        <>
-            {/* OVERLAY MÓVIL (Fondo oscuro al abrir menú) */}
-            {isOpen && (
-                <div
-                    className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
-                    onClick={onClose}
+        <div className="h-full flex flex-col bg-white border-r border-slate-200 w-64">
+            {/* Logo Area */}
+            <div className="p-6 border-b border-slate-100">
+                <CompanyLogo
+                    name={organization.name}
+                    logoUrl={organization.logo_url}
+                    color={organization.primary_color}
                 />
-            )}
+            </div>
 
-            {/* SIDEBAR CONTAINER */}
-            <aside
-                className={`
-            fixed inset-y-0 left-0 z-50 w-64 flex flex-col h-full
-            bg-[var(--brand-primary)] text-white shadow-2xl 
-            transform transition-transform duration-300 ease-in-out
-            ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
-            md:translate-x-0 md:relative md:shadow-xl
-        `}
-            >
+            {/* Menu Items */}
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                {menuItems.map((item) => {
+                    const isActive = item.exact
+                        ? pathname === item.href
+                        : pathname.startsWith(item.href)
 
-                {/* HEADER SIDEBAR */}
-                <div className="h-16 flex items-center justify-between px-6 border-b border-white/10 shrink-0">
-                    <CompanyLogo url={org.logo_url} name={org.name} />
-                    {/* Botón cerrar solo en móvil */}
-                    <button onClick={onClose} className="md:hidden text-white/70 hover:text-white">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`
+                flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
+                ${isActive
+                                    ? 'bg-slate-900 text-white shadow-md shadow-slate-200'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                }
+              `}
+                        >
+                            <item.icon
+                                size={20}
+                                className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}
+                            />
+                            <span className="font-medium text-sm">{item.name}</span>
+                        </Link>
+                    )
+                })}
+            </nav>
 
-                {/* NAVEGACIÓN SCROLLABLE */}
-                <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-                    {menuItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        const Icon = item.icon;
-
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={onClose} // Cerrar menú al hacer clic en móvil
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all group relative overflow-hidden ${isActive ? 'text-white font-bold shadow-md' : 'text-white/70 hover:bg-white/10 hover:text-white'
-                                    }`}
-                                style={isActive ? { backgroundColor: 'var(--brand-secondary)' } : {}}
-                            >
-                                <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-white/70 group-hover:text-white'}`} />
-                                <span className="relative z-10">{item.label}</span>
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                {/* FOOTER */}
-                <div className="p-4 border-t border-white/10 space-y-4 shrink-0 bg-[var(--brand-primary)]">
-                    <a
-                        href="mailto:soporte@cajix.com"
-                        className="flex items-center gap-2 text-xs text-white/50 hover:text-white transition-colors px-2"
-                    >
-                        <HelpCircle className="w-4 h-4" />
-                        <span>Ayuda y Soporte</span>
-                    </a>
-
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs text-white font-bold border border-white/20">
-                            {userProfile.full_name?.[0] || 'U'}
-                        </div>
-                        <div className="overflow-hidden">
-                            <p className="text-sm font-medium text-white truncate">{userProfile.full_name}</p>
-                            <p className="text-xs text-white/50 capitalize truncate">{userProfile.role}</p>
-                        </div>
+            {/* Footer / User Profile */}
+            <div className="p-4 border-t border-slate-100">
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                        {profile?.full_name?.charAt(0) || 'U'}
                     </div>
-
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                            {profile?.full_name || 'Usuario'}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate capitalize">
+                            {profile?.role === 'owner' ? 'Dueño' : 'Equipo'}
+                        </p>
+                    </div>
                     <form action="/auth/signout" method="post">
-                        <button className="flex items-center justify-center gap-2 px-3 py-2 w-full text-white/80 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors border border-white/10">
-                            <LogOut className="w-4 h-4" />
-                            <span className="text-sm font-medium">Cerrar Sesión</span>
+                        <button
+                            type="submit"
+                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            title="Cerrar Sesión"
+                        >
+                            <LogOut size={18} />
                         </button>
                     </form>
-
-                    <div className="pt-2 text-center opacity-50 hover:opacity-100 transition-opacity">
-                        <p className="text-[10px] uppercase tracking-wider mb-1">Powered by</p>
-                        <p className="text-lg leading-none" style={{ fontFamily: 'var(--font-revalia)' }}>Cajix</p>
-                    </div>
                 </div>
-            </aside>
-        </>
-    );
+            </div>
+        </div>
+    )
 }
