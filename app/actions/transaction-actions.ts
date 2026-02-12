@@ -1,36 +1,15 @@
 'use server';
 
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-// Helper corregido usando createServerClient
-async function getSupabaseClient() {
-    const cookieStore = await cookies();
-    return createServerClient(supabaseUrl, supabaseAnonKey, {
-        cookies: {
-            getAll() { return cookieStore.getAll() },
-            setAll(cookiesToSet) {
-                try {
-                    // En server actions a veces necesitamos setear cookies (ej. auth refresh)
-                    cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-                } catch {
-                    // Ignorar si estamos en un contexto donde no se puede escribir
-                }
-            }
-        }
-    });
-}
+import { createClient } from '@/lib/supabase-server'; // <-- Usamos la central
 
 export async function createTransactionAction(formData: FormData) {
-    const supabase = await getSupabaseClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, message: 'No autenticado' };
 
+    // Validamos que el usuario tenga organización
     const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -39,7 +18,8 @@ export async function createTransactionAction(formData: FormData) {
 
     if (!profile?.organization_id) return { success: false, message: 'Sin organización' };
 
-    // Extraer datos
+    // Extraer y validar datos básicos
+    // Nota: Idealmente aquí también usaríamos Zod en el futuro, pero por ahora limpiamos la conexión.
     const amount = parseFloat(formData.get('amount') as string);
     const description = formData.get('description') as string;
     const currency = formData.get('currency') as string;
@@ -68,7 +48,7 @@ export async function createTransactionAction(formData: FormData) {
         if (error) throw error;
 
         revalidatePath('/dashboard');
-        revalidatePath('/dashboard/movements'); // Asegúrate que esta ruta exista
+        revalidatePath('/dashboard/movements');
         return { success: true, message: 'Movimiento guardado' };
     } catch (error: any) {
         return { success: false, message: error.message };
@@ -76,7 +56,7 @@ export async function createTransactionAction(formData: FormData) {
 }
 
 export async function deleteTransactionAction(id: string) {
-    const supabase = await getSupabaseClient();
+    const supabase = await createClient(); // <-- Centralizado
 
     try {
         const { error } = await supabase
@@ -94,12 +74,11 @@ export async function deleteTransactionAction(id: string) {
 }
 
 export async function updateTransactionAction(formData: FormData) {
-    const supabase = await getSupabaseClient();
+    const supabase = await createClient(); // <-- Centralizado
 
     const id = formData.get('id') as string;
     if (!id) return { success: false, message: 'ID requerido' };
 
-    // Extraer datos (Igual que en create)
     const amount = parseFloat(formData.get('amount') as string);
     const description = formData.get('description') as string;
     const currency = formData.get('currency') as string;
@@ -110,7 +89,6 @@ export async function updateTransactionAction(formData: FormData) {
     const date = formData.get('date') as string;
 
     try {
-        // El Trigger de PostgreSQL se encargará de guardar la copia vieja en 'transaction_audit'
         const { error } = await supabase
             .from('transactions')
             .update({
