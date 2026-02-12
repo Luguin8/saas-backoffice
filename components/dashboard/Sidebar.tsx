@@ -2,16 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect } from 'react'
 import {
     LayoutDashboard,
     ArrowRightLeft,
     PieChart,
     Users,
-    Settings,
-    LogOut,
     CalendarDays,
     X,
-    LifeBuoy
+    LifeBuoy,
+    LogOut
 } from 'lucide-react'
 import { useDashboard } from '@/app/dashboard/context/DashboardContext'
 import CompanyLogo from './CompanyLogo'
@@ -20,12 +20,21 @@ export default function Sidebar() {
     const pathname = usePathname()
     const { organization, profile, isMobileMenuOpen, closeMobileMenu } = useDashboard()
 
+    // Efecto para inyectar los colores de la marca en toda la web
+    useEffect(() => {
+        if (organization?.primary_color) {
+            document.documentElement.style.setProperty('--brand-primary', organization.primary_color)
+        }
+        if (organization?.secondary_color) {
+            document.documentElement.style.setProperty('--brand-secondary', organization.secondary_color)
+        }
+    }, [organization])
+
     if (!organization) return null
 
-    // Colores dinámicos (si no hay, usa el default slate-900)
+    // Color de fallback si no hay nada definido
     const primaryColor = organization.primary_color || '#0f172a'
 
-    // Detectar módulos
     const modules = organization.organization_modules || []
     const turneroModule = modules.find((m: any) => m.module_key === 'turnero' && m.is_enabled)
 
@@ -34,11 +43,11 @@ export default function Sidebar() {
         { name: 'Movimientos', href: '/dashboard/movements', icon: ArrowRightLeft },
         { name: 'Reportes', href: '/dashboard/reports', icon: PieChart },
         { name: 'Equipo', href: '/dashboard/teams', icon: Users },
-        // El link de configuración ahora apunta al dashboard de la empresa, no al admin
-        { name: 'Configuración', href: '/dashboard/settings', icon: Settings }
+        // SECCIÓN DE CONFIGURACIÓN ELIMINADA
     ]
 
     if (turneroModule) {
+        // Insertar Turnos en la posición correcta
         menuItems.splice(2, 0, { name: 'Turnos', href: '/dashboard/appointments', icon: CalendarDays })
     }
 
@@ -94,28 +103,25 @@ export default function Sidebar() {
                                 <item.icon
                                     size={20}
                                     className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}
-                                    // Si el ítem no está activo, queremos que el icono tome el color de la marca al hacer hover
+                                    // Truco: si no está activo, al hacer hover el icono toma el color de la marca
                                     style={!isActive ? { color: 'inherit' } : {}}
                                 />
-                                <span>{item.name}</span>
+                                <span className={!isActive ? "group-hover:text-slate-900" : ""}>{item.name}</span>
                             </Link>
                         )
                     })}
                 </nav>
 
-                {/* Footer Restaurado */}
+                {/* Footer */}
                 <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-
-                    {/* Botón Soporte */}
                     <a href="#" className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 mb-4 px-2">
                         <LifeBuoy size={14} />
                         <span>Soporte Técnico</span>
                     </a>
 
-                    {/* Perfil Usuario */}
                     <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white border border-slate-100 shadow-sm mb-3">
                         <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
                             style={{ backgroundColor: primaryColor }}
                         >
                             {profile?.full_name?.charAt(0) || 'U'}
@@ -133,7 +139,6 @@ export default function Sidebar() {
                         </form>
                     </div>
 
-                    {/* Powered By */}
                     <div className="text-[10px] text-center text-slate-400 font-medium">
                         Powered by <span className="text-slate-600 font-bold">Cajix</span>
                     </div>

@@ -56,7 +56,7 @@ export default function TeamPage() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto">
+        <div className="space-y-6">
 
             <div className="flex justify-between items-center mb-8">
                 <div>
@@ -127,99 +127,101 @@ export default function TeamPage() {
             </div>
 
             {/* MODAL de Creación */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            {
+                isModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
 
-                        <h2 className="text-lg font-bold text-slate-900 mb-4">Agregar Miembro</h2>
+                            <h2 className="text-lg font-bold text-slate-900 mb-4">Agregar Miembro</h2>
 
-                        {actionResult?.success ? (
-                            // PANTALLA DE ÉXITO CON CONTRASEÑA
-                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 text-center space-y-4">
-                                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                                    <Check className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-emerald-800 font-bold">¡Usuario Creado!</h3>
-                                    <p className="text-emerald-600 text-sm mt-1">Comparte estas credenciales con tu empleado. No podrás verlas de nuevo.</p>
-                                </div>
-
-                                <div className="bg-white border border-emerald-200 p-3 rounded text-left relative group">
-                                    <p className="text-xs text-slate-400 mb-1">Contraseña Temporal:</p>
-                                    <p className="font-mono text-lg font-bold text-slate-800 tracking-wide">{actionResult.newPassword}</p>
-                                    <button
-                                        onClick={() => navigator.clipboard.writeText(actionResult.newPassword || '')}
-                                        className="absolute top-2 right-2 p-2 text-slate-400 hover:text-slate-600"
-                                        title="Copiar"
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                    </button>
-                                </div>
-
-                                <button
-                                    onClick={() => { setIsModalOpen(false); setActionResult(null); }}
-                                    className="w-full py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
-                                >
-                                    Cerrar
-                                </button>
-                            </div>
-                        ) : (
-                            // FORMULARIO
-                            <form action={handleCreateSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
-                                    <input name="fullName" type="text" required className="w-full px-3 py-2 border rounded-lg" placeholder="Juan Pérez" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
-                                    <input name="email" type="email" required className="w-full px-3 py-2 border rounded-lg" placeholder="juan@empresa.com" />
-                                </div>
-                                {/* SELECTOR DE ROL */}
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Rol y Permisos</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <label className="relative flex flex-col items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all">
-                                            <input type="radio" name="role" value="employee" defaultChecked className="sr-only" />
-                                            <User className="w-6 h-6 text-slate-400 mb-2" />
-                                            <span className="font-semibold text-sm">Empleado</span>
-                                            <span className="text-xs text-slate-500 text-center mt-1">Solo carga y ve movimientos fiscales.</span>
-                                        </label>
-
-                                        <label className="relative flex flex-col items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all">
-                                            <input type="radio" name="role" value="admin" className="sr-only" />
-                                            <Shield className="w-6 h-6 text-slate-400 mb-2" />
-                                            <span className="font-semibold text-sm">Administrador</span>
-                                            <span className="text-xs text-slate-500 text-center mt-1">Gestiona equipo y ve reportes completos.</span>
-                                        </label>
+                            {actionResult?.success ? (
+                                // PANTALLA DE ÉXITO CON CONTRASEÑA
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 text-center space-y-4">
+                                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                                        <Check className="w-6 h-6" />
                                     </div>
-                                </div>
+                                    <div>
+                                        <h3 className="text-emerald-800 font-bold">¡Usuario Creado!</h3>
+                                        <p className="text-emerald-600 text-sm mt-1">Comparte estas credenciales con tu empleado. No podrás verlas de nuevo.</p>
+                                    </div>
 
-                                {actionResult?.success === false && (
-                                    <p className="text-red-500 text-sm">{actionResult.message}</p>
-                                )}
+                                    <div className="bg-white border border-emerald-200 p-3 rounded text-left relative group">
+                                        <p className="text-xs text-slate-400 mb-1">Contraseña Temporal:</p>
+                                        <p className="font-mono text-lg font-bold text-slate-800 tracking-wide">{actionResult.newPassword}</p>
+                                        <button
+                                            onClick={() => navigator.clipboard.writeText(actionResult.newPassword || '')}
+                                            className="absolute top-2 right-2 p-2 text-slate-400 hover:text-slate-600"
+                                            title="Copiar"
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                        </button>
+                                    </div>
 
-                                <div className="flex gap-3 mt-6">
                                     <button
-                                        type="button"
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 py-2 text-slate-700 hover:bg-slate-50 border rounded-lg"
+                                        onClick={() => { setIsModalOpen(false); setActionResult(null); }}
+                                        className="w-full py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
                                     >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 py-2 text-white rounded-lg hover:opacity-90 transition-opacity"
-                                        style={{ backgroundColor: 'var(--brand-primary)' }}
-                                    >
-                                        Crear Usuario
+                                        Cerrar
                                     </button>
                                 </div>
-                            </form>
-                        )}
+                            ) : (
+                                // FORMULARIO
+                                <form action={handleCreateSubmit} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
+                                        <input name="fullName" type="text" required className="w-full px-3 py-2 border rounded-lg" placeholder="Juan Pérez" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
+                                        <input name="email" type="email" required className="w-full px-3 py-2 border rounded-lg" placeholder="juan@empresa.com" />
+                                    </div>
+                                    {/* SELECTOR DE ROL */}
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Rol y Permisos</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <label className="relative flex flex-col items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all">
+                                                <input type="radio" name="role" value="employee" defaultChecked className="sr-only" />
+                                                <User className="w-6 h-6 text-slate-400 mb-2" />
+                                                <span className="font-semibold text-sm">Empleado</span>
+                                                <span className="text-xs text-slate-500 text-center mt-1">Solo carga y ve movimientos fiscales.</span>
+                                            </label>
+
+                                            <label className="relative flex flex-col items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 transition-all">
+                                                <input type="radio" name="role" value="admin" className="sr-only" />
+                                                <Shield className="w-6 h-6 text-slate-400 mb-2" />
+                                                <span className="font-semibold text-sm">Administrador</span>
+                                                <span className="text-xs text-slate-500 text-center mt-1">Gestiona equipo y ve reportes completos.</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {actionResult?.success === false && (
+                                        <p className="text-red-500 text-sm">{actionResult.message}</p>
+                                    )}
+
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsModalOpen(false)}
+                                            className="flex-1 py-2 text-slate-700 hover:bg-slate-50 border rounded-lg"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2 text-white rounded-lg hover:opacity-90 transition-opacity"
+                                            style={{ backgroundColor: 'var(--brand-primary)' }}
+                                        >
+                                            Crear Usuario
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-        </div>
+        </div >
     );
 }
