@@ -1,31 +1,33 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
+/**
+ * Cliente de Supabase unificado para Server Components y Server Actions.
+ * Maneja automáticamente las cookies y la sesión.
+ */
 export async function createClient() {
-    const cookieStore = await cookies() // AQUI AGREGAMOS AWAIT
+    const cookieStore = await cookies();
 
     return createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
+                getAll() {
+                    return cookieStore.getAll();
                 },
-                set(name: string, value: string, options: CookieOptions) {
+                setAll(cookiesToSet) {
                     try {
-                        cookieStore.set({ name, value, ...options })
-                    } catch (error) {
-                        // El manejo de cookies en Server Components puede fallar si ya se envió respuesta
-                    }
-                },
-                remove(name: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value: '', ...options })
-                    } catch (error) {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        );
+                    } catch {
+                        // El bloque try/catch es necesario porque en Server Components
+                        // no se pueden setear cookies, pero el cliente auth lo intenta.
+                        // Esto evita errores en consola.
                     }
                 },
             },
         }
-    )
+    );
 }
