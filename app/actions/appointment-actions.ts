@@ -159,3 +159,17 @@ export async function createPublicAppointment(data: any) {
     if (error) throw new Error(error.message)
     return { success: true }
 }
+
+// Agregar al final del archivo o junto a los otros getters públicos
+export async function getPublicProfessionals(organizationId: string) {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .eq('organization_id', organizationId)
+        .eq('is_professional', true) // Solo trae a los que marcaste como "Profesional"
+        .order('full_name')
+
+    if (error) throw new Error(error.message)
+    return data
+}

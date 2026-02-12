@@ -6,7 +6,8 @@ import {
     getPublicOrganization,
     getPublicServices,
     getBusySlots,
-    createPublicAppointment
+    createPublicAppointment,
+    getPublicProfessionals
 } from '@/app/actions/appointment-actions'
 import { Calendar, Clock, CheckCircle, User, ChevronRight } from 'lucide-react'
 
@@ -17,12 +18,8 @@ interface Service {
     price: number;
     duration_minutes: number;
 }
-// Simulamos profesionales (en el futuro vendrán de DB real vinculados a servicios)
-const MOCK_PROFESSIONALS = [
-    { id: '1', name: 'Cualquier Profesional Disponible' },
-    { id: '2', name: 'Dra. Ana (Psicóloga)' },
-    { id: '3', name: 'Lic. Juan (Psicólogo)' }
-]
+
+const [professionals, setProfessionals] = useState<any[]>([])
 
 export default function PublicBookingPage() {
     const params = useParams()
