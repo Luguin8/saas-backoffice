@@ -58,24 +58,20 @@ export default async function DashboardLayout({
 
     return (
         <ToastProvider>
-            {/* AQUI PASAMOS LOS DATOS AL CONTEXTO */}
             <DashboardProvider
                 organization={organization}
                 profile={profile}
                 userRole={profile.role}
             >
                 <div className="flex h-screen bg-slate-50">
-                    {/* Sidebar para Desktop */}
-                    <div className="hidden md:block h-full">
-                        <Sidebar />
-                    </div>
+
+                    {/* Sidebar (Ahora maneja su propia visibilidad en móvil) */}
+                    <Sidebar />
 
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                        {/* Header Móvil */}
-                        <MobileHeader
-                            onOpen={() => { }} // MobileHeader maneja su propio estado o usa un sidebar sheet, pasamos función vacía por compatibilidad si es necesario
-                            org={organization} // AQUI PASAMOS LA ORGANIZACIÓN QUE OBTUVIMOS ARRIBA
-                        />
+                        {/* Header Móvil (Ya no necesita props) */}
+                        <MobileHeader />
+
                         {/* Contenido Principal con Scroll */}
                         <main className="flex-1 overflow-y-auto">
                             {children}

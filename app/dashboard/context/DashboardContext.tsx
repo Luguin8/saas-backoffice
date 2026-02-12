@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-// Definimos tipos flexibles para no pelear con TypeScript ahora
 type OrganizationType = {
     id: string;
     name: string;
@@ -10,7 +9,7 @@ type OrganizationType = {
     logo_url: string | null;
     primary_color: string | null;
     secondary_color: string | null;
-    organization_modules?: any[]; // Importante para detectar el turnero
+    organization_modules?: any[];
 }
 
 type ProfileType = {
@@ -26,6 +25,10 @@ type DashboardContextType = {
     showRealNumbers: boolean;
     togglePrivacy: () => void;
     canViewRealNumbers: boolean;
+    // NUEVO: Estado del menú móvil
+    isMobileMenuOpen: boolean;
+    toggleMobileMenu: () => void;
+    closeMobileMenu: () => void;
 };
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -37,19 +40,23 @@ export function DashboardProvider({
     userRole
 }: {
     children: ReactNode;
-    organization: any; // Recibimos la data desde el layout
-    profile: any;      // Recibimos la data desde el layout
+    organization: any;
+    profile: any;
     userRole: string;
 }) {
-    // Solo el owner puede ver números reales
     const canViewRealNumbers = userRole === 'owner';
     const [showRealNumbers, setShowRealNumbers] = useState(false);
 
+    // NUEVO: Estado del Sidebar Móvil
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     const togglePrivacy = () => {
-        if (canViewRealNumbers) {
-            setShowRealNumbers((prev) => !prev);
-        }
+        if (canViewRealNumbers) setShowRealNumbers((prev) => !prev);
     };
+
+    // NUEVAS FUNCIONES
+    const toggleMobileMenu = () => setIsMobileMenuOpen(prev => !prev);
+    const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
     return (
         <DashboardContext.Provider value={{
@@ -57,7 +64,10 @@ export function DashboardProvider({
             profile,
             showRealNumbers: canViewRealNumbers ? showRealNumbers : false,
             togglePrivacy,
-            canViewRealNumbers
+            canViewRealNumbers,
+            isMobileMenuOpen,
+            toggleMobileMenu,
+            closeMobileMenu
         }}>
             {children}
         </DashboardContext.Provider>
