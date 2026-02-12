@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+// CORRECCIÓN 1: Importar la instancia 'supabase' directamente
+import { supabase } from '@/lib/supabase'
 import { createCompanyUser, getCompanyUsers, deleteCompanyUser } from '@/app/actions/admin-user-actions'
-import { UserPlus, Trash2, Stethoscope, Save } from 'lucide-react'
+import { UserPlus, Trash2, Stethoscope } from 'lucide-react'
 
 export default function EditCompanyPage() {
     const params = useParams()
@@ -22,7 +23,6 @@ export default function EditCompanyPage() {
     }, [])
 
     async function loadData() {
-        const supabase = createClient()
         const { data } = await supabase.from('organizations').select('*').eq('id', params.id).single()
         setOrg(data)
 

@@ -2,16 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useDashboard } from '@/app/dashboard/context/DashboardContext'
+// CORRECCIÓN: Aseguramos que la importación coincida con el archivo del paso 1
 import { getOrganizationTeam } from '@/app/actions/team-actions'
 import { User, Shield, Stethoscope } from 'lucide-react'
 
 export default function TeamPage() {
     const { organization } = useDashboard()
-    const [team, setTeam] = useState<any[]>([])
+    const [team, setTeam] = useState<any[]>([]) // Tipado explícito básico
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         if (organization) {
-            getOrganizationTeam(organization.id).then(data => setTeam(data || []))
+            getOrganizationTeam(organization.id)
+                .then((data: any) => setTeam(data || [])) // CORRECCIÓN: Tipado (data: any)
+                .finally(() => setLoading(false))
         }
     }, [organization])
 

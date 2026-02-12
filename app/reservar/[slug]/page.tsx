@@ -164,20 +164,26 @@ export default function PublicBookingPage() {
                         </div>
                     )}
 
-                    {/* PASO 2: PROFESIONALES (NUEVO) */}
+                    {/* PASO 2: PROFESIONALES */}
                     {step === 2 && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                             <h2 className="text-lg font-semibold text-gray-800 mb-4">Selecciona Profesional</h2>
-                            {MOCK_PROFESSIONALS.map((prof) => (
+
+                            {/* CORRECCIÓN: Usamos 'professionals' (el estado) en vez de MOCK_PROFESSIONALS */}
+                            {professionals.map((prof: any) => ( // Agregamos :any para callar a TS
                                 <button
                                     key={prof.id}
                                     onClick={() => { setSelectedProfessional(prof); setStep(3) }}
                                     className="w-full text-left p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-gray-300 hover:bg-white hover:shadow-md transition-all flex items-center gap-3"
                                 >
-                                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
-                                        <User size={20} />
+                                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 overflow-hidden">
+                                        {prof.avatar_url ? (
+                                            <img src={prof.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
+                                        ) : (
+                                            <User size={20} />
+                                        )}
                                     </div>
-                                    <span className="font-medium text-gray-900">{prof.name}</span>
+                                    <span className="font-medium text-gray-900">{prof.full_name}</span>
                                 </button>
                             ))}
                         </div>
