@@ -1,0 +1,46 @@
+# ¿Qué es nuestra plataforma? (Explicación Simple)
+
+Básicamente, construimos una "Oficina Virtual" completa para pequeños negocios, consultorios o empresas de servicios. El objetivo es que dejen de usar Excel y cuadernos, y pasen a tener todo ordenado, seguro y con imagen profesional.
+
+## ¿Qué le ofrecemos a las empresas? (Nuestros Ganchos de Venta)
+
+### 1. El "Secreto" de la Doble Caja (Gestión Real vs. Fiscal)
+Esto es lo que más les va a gustar. Todo dueño de PyME tiene gastos "en blanco" y movimientos "informales".
+- El sistema les permite cargar **TODO** para saber cuánto ganan realmente a fin de mes.
+- **La Magia:** Tienen un "Botón de Privacidad" (un ojito en la pantalla).
+- Si lo activan, el sistema oculta automáticamente todo lo informal.
+- **Beneficio:** Pueden sentarse con su contador, un socio o un empleado, activar el modo privado, y mostrar solo los números "blancos" sin miedo a exponer sus ahorros reales o movimientos internos.
+
+### 2. Agenda de Turnos Automática (¡Adiós WhatsApp!)
+Ideal para médicos, esteticistas, psicólogos o consultores.
+- Les damos una página web propia (ej: `tunegocio.com/reservar`) con su logo y colores.
+- Los pacientes entran, eligen servicio (ej: "Limpieza Facial"), eligen con quién atenderse y buscan un horario.
+- El sistema revisa la agenda automáticamente y solo muestra los huecos libres.
+- **Beneficio:** Se ahorran horas de responder mensajes tipo "¿Tenés turno el martes?". El sistema trabaja por ellos 24/7 y llena la agenda sola.
+
+### 3. Imagen Profesional y Personalizada
+- No les vendemos un "software genérico" aburrido.
+- Cuando les entregamos el sistema, lo configuramos con **SUS colores y SU logotipo**.
+- Pareciera que mandaron a desarrollar un sistema propio de miles de dólares, pero pagan solo un abono mensual.
+
+### 4. Control de Empleados (Seguridad para el Dueño)
+- El dueño es el dueño. Él ve todo (la caja real y la ganancia final).
+- A los empleados o secretarias se les da un acceso restringido. Pueden dar turnos o cargar gastos menores, pero **NO ven la ganancia total de la empresa** ni los movimientos sensibles.
+
+### 5. Reportes para el Contador en un Clic
+- Llega fin de mes y hay que mandar los papeles.
+- Con un solo botón, el sistema genera un PDF prolijo **solo con los movimientos blancos**.
+- Se lo mandan por WhatsApp al contador y listo. Se terminó el estrés de "limpiar el Excel" manualmente para borrar lo que no se puede mostrar.
+
+---
+
+## ¿Qué manejamos nosotros? (El Negocio)
+
+Nosotros tenemos un "Panel de Control Central" (Superadmin):
+- **Alta Rápida**: Podemos crear una empresa nueva en segundos. Cargamos nombre, logo, elegimos qué módulos usar (si usan turnos o no) y les asignamos un precio mensual.
+- **Control de Cobros**: Vemos en tiempo real cuántas empresas activas tenemos y cuánto dinero mensual estamos facturando por el servicio (nuestro MRR).
+- **Control Total**: Si un cliente deja de pagar, podemos suspenderle el acceso con un clic.
+
+---
+**En Resumen:**
+No vendemos solo un software. Vendemos **ORDEN** para sus finanzas, **PRIVACIDAD** para sus números reales y **TIEMPO LIBRE** al automatizar sus turnos.

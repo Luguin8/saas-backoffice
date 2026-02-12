@@ -1,147 +1,254 @@
-ANÁLISIS TÉCNICO COMPLETO: SAAS-BACKOFFICE
-===========================================
-Fecha de Análisis: 2026-02-05
-Versión del Software: 0.1.0 (según package.json)
-Framework: Next.js 16.1.6 (App Router)
+================================================================================
+ANÁLISIS TÉCNICO DETALLADO DEL SISTEMA "SAAS-BACKOFFICE"
+================================================================================
+FECHA DE EJECUCIÓN: 2026-02-12
+OBJETIVO: Documentación línea por línea y análisis profundo de arquitectura.
 
-1. RESUMEN EJECUTIVO
---------------------
-La aplicación "saas-backoffice" es un sistema de gestión financiera (SaaS) diseñado para PyMEs ("Cajix").
-Posee una arquitectura multi-tenancy donde:
-- Existe un "Superadmin" que gestiona las empresas (tenants) desde un panel de Backoffice.
-- Existen "Clientes/Dueños" que gestionan sus finanzas (transacciones) desde un Dashboard.
-- El sistema diferencia estrictamente entre movimientos "Fiscales" (blanco) y "No Fiscales/Internos" (negro), con capacidades de privacidad y exportación selectiva.
+--------------------------------------------------------------------------------
+SECCIÓN 1: CONFIGURACIÓN RAÍZ Y DEPENDENCIAS
+--------------------------------------------------------------------------------
 
-2. TECNOLOGÍAS Y STACK
-----------------------
-- **Core**: Next.js 16 (React 19), TypeScript.
-- **Base de Datos & Auth**: Supabase (PostgreSQL + Auth).
-- **Estilos**: Tailwind CSS 4.
-- **UI Components**: Shadcn/ui (aparente), Lucide React (iconos).
-- **Manejo de Estado/Datos**: Server Actions (Mutaciones) + React Server Components (Data Fetching).
-- **Utilidades**: 
-  - `date-fns`: Manejo de fechas.
-  - `jspdf` + `jspdf-autotable`: Generación de reportes PDF.
-  - `recharts`: Gráficos financieros.
-  - `sonner` (inferido por useToast/Context): Notificaciones.
+1.1. METADATA DEL PROYECTO (package.json)
+- Nombre: `saas-backoffice`
+- Versión: `0.1.0`
+- Privado: `true` (Evita publicación accidental en npm).
+- Scripts: Estándar de Next.js (`dev`, `build`, `start`, `lint`).
 
-3. ARQUITECTURA DE SEGURIDAD (MIDDLEWARE & AUTH)
-------------------------------------------------
-Archivo: `middleware.ts`
-- **Protección de Rutas**:
-  - `/admin`: Rutas del Superadmin.
-  - `/dashboard`: Rutas del Cliente.
-  - Si no hay sesión, redirige a `/login`.
-- **Estrategia de Roles**: 
-  - Actualmente implementada como "Soft Protection" en middleware (basada en sesión).
-  - La seguridad real de datos reside en RLS (Row Level Security) en Supabase (inferido de los comentarios "confiamos en RLS").
-  - El middleware sugiere una futura mejora para verificar "Custom Claims" o cookies de rol.
+1.2. DEPENDENCIAS PRINCIPALES (dependencies)
+- `next` (16.1.6): Framework principal. Uso de App Router confirmado.
+- `react` / `react-dom` (19.2.3): Última versión estable de React.
+- `@supabase/supabase-js` y `@supabase/ssr`: Cliente de base de datos y autenticación. El uso de `@supabase/ssr` indica implementación correcta de Auth en servidor (cookies).
+- `zod` + `react-hook-form`: Stack estándar para validación de esquemas y manejo de formularios.
+- `tailwindcss` (v4): Sistema de estilos. Nota: Versión 4 (alpha/beta o release reciente, verificar estabilidad).
+- `lucide-react`: Biblioteca de iconos vectorial.
+- `date-fns`: Manipulación de fechas (básico para un sistema financiero).
+- `jspdf` + `jspdf-autotable`: Motor de generación de reportes PDF en cliente/servidor.
+- `recharts`: Librería de visualización de datos (gráficos financieros).
 
-4. FUNCIONALIDADES DETALLADAS: MÓDULO BACKOFFICE (SUPERADMIN)
--------------------------------------------------------------
-Ruta base: `/app/admin`
+1.3. CONFIGURACIÓN DE COMPILADOR (tsconfig.json)
+- `target`: `ES2017`.
+- `lib`: Incluye `dom`, `dom.iterable`, `esnext`.
+- `paths`: Alias `@/*` mapeado a root `./*`, facilitando importaciones absolutas.
+- `strict`: `true`. TypeScript en modo estricto (best practice).
+- `plugins`: Plugin `next` activo.
 
-A. **Dashboard Principal (`/admin/page.tsx`)**
-   - **KPIs en Tiempo Real**:
-     1. **Empresas Activas**: Total de organizaciones con status 'active'.
-     2. **MRR (Monthly Recurring Revenue)**: Calculado sumando:
-        - Tarifa base de mantenimiento de cada empresa.
-        - Precio adicional de cada módulo activado (`monthly_price_adder`).
-     3. **Usuarios Totales**: Conteo de perfiles registrados.
-   - **Navegación Rápida**: Accesos a "Nueva Empresa", "Listado de Empresas" y "Configuración Global".
+1.4. MIDDLEWARE (middleware.ts)
+- Propósito: Interceptor de solicitudes para manejo de sesiones.
+- Lógica (Línea por línea):
+  - Importa `createServerClient` de `@supabase/ssr`.
+  - Crea una instancia de cliente Supabase con manejo de cookies (métodos `getAll`, `setAll`).
+  - `await supabase.auth.getUser()`: Verifica la sesión del usuario actual contra Supabase Auth.
+  - Protección de Rutas:
+    - Si `!user` (no logueado) Y la ruta comienza con `/admin` o `/dashboard`:
+    - Redirige (`NextResponse.redirect`) a `/login`.
+  - "Soft Protection": El código admite explícitamente (comentarios líneas 35-42) que esta es una protección de capa de aplicación y que la seguridad real de datos recae en RLS (Row Level Security) de la base de datos.
+  - Matcher: Excluye estáticos (`_next`, imágenes, favicon) para no sobrecargar el middleware.
 
-B. **Gestión de Empresas (`actions/create-organization.ts`)**
-   - **Flujo de Alta de Empresa (Extremadamente detallado)**:
-     1. **Cliente Admin**: Usa `SUPABASE_SERVICE_ROLE_KEY` (permisos totales) para bypass de restricciones.
-     2. **Generación de Credenciales**: Crea una contraseña aleatoria segura automáticamente (visualizada una sola vez).
-     3. **Creación de Usuario**: Registra al dueño en `auth.users` con metadata `role: 'owner'`. Auto-confirma el email.
-     4. **Creación de Organización**: Inserta en tabla `organizations` (slug, logo, colores, fee, etc.).
-     5. **Vinculación**: Crea registro en `profiles` vinculando `user.id` con `organization.id`.
-     6. **Asignación de Módulos**: Inserta registros en `organization_modules` según selección.
-     7. **Rollback Manual**: Si falla la creación de la org, borra el usuario creado para mantener consistencia.
+1.5. VARIABLES DE ENTORNO (.env.local)
+- `NEXT_PUBLIC_SUPABASE_URL`: Endpoint del proyecto Supabase.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Llave pública para cliente (segura de exponer en navegador si RLS está activo).
+- `SUPABASE_SERVICE_ROLE_KEY`: Llave administrativa total. PELIGRO: Permite bypass de RLS. Solo debe usarse en servidor (Server Actions/API Routes).
+- `NEXT_PUBLIC_SUPERADMIN_EMAIL`: `lugoamartin@gmail.com`. Define quién es el superadmin "hardcoded" o de referencia inicial.
 
-C. **Listado de Empresas**
-   - Muestra tabla con estado, deudas (implícito en descripción), módulos activos y costos mensuales.
+BS: La configuración es sólida y moderna. El uso de `middleware` centralizado para auth es correcto. El uso de Tailwind v4 y React 19 indica un proyecto "bleeding edge" o muy actualizado.
 
-5. FUNCIONALIDADES DETALLADAS: MÓDULO DASHBOARD (CLIENTE/PYME)
---------------------------------------------------------------
-Ruta base: `/app/dashboard`
+--------------------------------------------------------------------------------
+SECCIÓN 2: LIBRERÍAS DE INFRAESTRUCTURA Y SERVICIOS (lib)
+--------------------------------------------------------------------------------
 
-A. **Resumen Financiero (`/dashboard/page.tsx`)**
-   - **Carga de Datos**: Usa `Promise.all` para paralelizar `getDashboardStats` y `getCommonData`.
-   - **Zero State**: Si no hay ingresos ni egresos, muestra un banner de bienvenida ("Tu caja está segura, pero vacía").
-   - **Action Center**: Botones rápidos para registrar movimientos frecuentes (basados en categorías/payees).
+2.1. CLIENTES SUPABASE
+- `lib/supabase.ts`: Cliente para componentes de cliente (Browser). Usa `createBrowserClient`.
+- `lib/supabase-server.ts`: Cliente para Server Components/Actions.
+  - Usa `createServerClient` y `cookies()` de Next.js.
+  - Implementa `getAll` y `setAll` para manejo transparente de tokens en cookies.
+  - Incluye bloque `try/catch` en `setAll` para evitar crasheos cuando se invoca desde Server Components (donde no se pueden setear cookies).
+- `lib/supabase-admin.ts`: Cliente con `service_role`.
+  - **ADVERTENCIA EXPLÍCITA**: "Bypass RLS". Se usa para acciones administrativas (ej. crear tenant).
+  - Configurado para NO persistir sesión.
 
-B. **Gestión de Transacciones (`TransactionModal.tsx`)**
-   - **Tipos**: Ingreso (`income`) y Egreso (`expense`).
-   - **Campos**:
-     - Monto y Moneda (ARS/USD).
-     - Categoría (con creación rápida).
-     - Proveedor/Cliente (con creación rápida).
-     - Descripción y Fecha.
-     - **Flag Crítico "Es Fiscal"**: Checkbox que marca si el movimiento es "blanco". Visible para empleados.
-   - **Feedback**: Usa Toasts (Notificaciones) verdes para éxito y rojos para error.
-   - **Edición/Eliminación**: Permite modificar o borrar transacciones existentes.
+2.2. SERVICIOS DE NEGOCIO (`lib/services`)
+- `companies.ts`:
+  - **Types**: Define `Module`, `CreateCompanyDTO`, `DashboardStats`, `CompanySummary`.
+  - `uploadLogo(file, slug)`: Sube logo a bucket `company-logos`. Retorna URL pública.
+  - `fetchModules()`: Trae módulos activos desde DB.
+  - `fetchDashboardStats()`:
+    - **Optimización**: Usa `{ count: 'exact', head: true }` para contar usuarios sin traer datos.
+    - **Cálculo de MRR**: Itera organizaciones activas sumando `base_maintenance_fee` + precio de módulos activados. Esto se hace en memoria (aplicación), no en SQL.
+  - `fetchCompaniesSummary()`:
+    - Trae organizaciones con sus módulos (join).
+    - Mapea datos y calcula costo total por empresa.
+    - **Datos Nuevos**: Lee `primary_color`, `secondary_color`, `initial_password`, `owner_email`.
 
-C. **Visualización de Movimientos (`MovementsTable.tsx`)**
-   - **Filtros**:
-     - Texto (Búsqueda por descripción, categoría, proveedor o monto).
-     - Tipo (Todos, Ingresos, Egresos).
-   - **Lógica de Privacidad ("Modo Ojo")**:
-     - Integrado vía `PrivacyToggle`.
-     - Si está activo el modo privacidad (`showRealNumbers = false`), **oculta** las transacciones NO fiscales (internas).
-   - **Formato**:
-     - Fechas formateadas en español (`es` locale).
-     - Montos formateados según moneda (ARS/USD).
-     - Badges para estado "Fiscal" vs "Interno".
+2.3. UTILIDADES (`lib/utils`)
+- `export-helper.ts` (`exportToPDF`):
+  - **Seguridad Fiscal**: Filtra explícitamente `transactions.filter(t => t.is_fiscal === true)`. Esto asegura que el PDF generado para terceros (contadores) NUNCA contenga datos en "negro" (internos).
+  - Genera tabla con `jspdf-autotable`.
+  - Colorea el header con verde corporativo `[22, 160, 133]`.
+- `format.ts` (`formatMoney`):
+  - Formatea moneda usando `Intl.NumberFormat('es-AR')`.
+  - **Hack Visual**: Reemplaza el símbolo para forzar espacio (`$ ` o `U$S `) usando unicode `\u00A0` (non-breaking space).
 
-D. **Exportación de Reportes (`lib/utils/export-helper.ts`)**
-   - **Formato**: PDF generado con `jspdf-autotable`.
-   - **Seguridad Fiscal**: El reporte **filtra forzosamente** (`filter(t => t.is_fiscal === true)`) los datos. 
-   - **Contenido**: Solo muestra movimientos "blancos". Ideal para enviar al contador sin exponer la caja "negra".
-   - **Estilo**: Header profesional, tabla con colores corporativos (verde).
+--------------------------------------------------------------------------------
+SECCIÓN 3: COMPONENTES DE INTERFAZ & DASHBOARD
+--------------------------------------------------------------------------------
 
-6. SERVER ACTIONS (LÓGICA DEL SERVIDOR)
----------------------------------------
-Ubicación: `/app/actions`
+3.1. LAYOUT Y NAVEGACIÓN
+- `DashboardClientLayout.tsx`:
+  - Envoltorio principal del Dashboard.
+  - **Theming Dinámico**: Inyecta variables CSS (`--brand-primary`, `--brand-secondary`) basándose en la configuración de la organización. Esto permite que cada cliente vea su propia marca.
+  - Maneja el estado del Sidebar (apertura/cierre en móvil).
+- `Sidebar.tsx`:
+  - Menu lateral responsivo.
+  - **Lógica de Módulos**: Verifica `organization_modules` para mostrar u ocultar ítems (ej. "Turnos").
+  - Renderiza items con estilos activos basados en colores de marca.
+  - Muestra info del usuario y botón de Logout.
+- `MobileHeader.tsx` & `CompanyLogo.tsx`: Componentes presentacionales para cabecera móvil y logotipos.
 
-- `transaction-actions.ts`:
-  - `createTransactionAction`: Inserta en DB. Verifica autenticación y que el usuario tenga organización.
-  - `updateTransactionAction`: Actualiza transacción. Nota: PostgreSQL Trigger se encarga de auditoría (mencionado en comentarios).
-  - `deleteTransactionAction`: Eliminación física.
-- `create-organization.ts`: Lógica compleja de alta de tenant (detallada en sección 4B).
-- `config-actions.ts`: Creación rápida de Categorías y Payees (Proveedores/Clientes).
-- `get-dashboard-stats.ts`: Calcula totales de Ingresos/Egresos por moneda (ARS/USD).
-- `get-transactions.ts`: Fetch de listado de movimientos.
-- `team-actions.ts`: Gestión de miembros del equipo (presumiblemente invitación/roles).
+3.2. GESTIÓN DE TRANSACCIONES
+- `TransactionModal.tsx` (CRÍTICO):
+  - Formulario complejo para Crear/Editar/Borrar transacciones.
+  - **UX Rápida**: Permite crear Categorías y Proveedores "al vuelo" sin salir del modal.
+  - **Flag Fiscal**: Checkbox "¿Es Fiscal?". Fundamental para la lógica de doble contabilidad.
+  - **Validación**: Campos requeridos, manejo de estados de carga (`loading`), feedback visual con `useToast`.
+  - Soporte Multi-moneda (ARS/USD).
+- `ActionCenter.tsx`:
+  - Botones grandes de acceso rápido ("Ingresar Dinero", "Retirar Dinero") que abren el modal.
 
-7. MODELO DE DATOS INFERIDO (SCHEMA)
-------------------------------------
-Basado en las queries de Supabase:
+3.3. VISUALIZACIÓN DE DATOS
+- `MovementsTable.tsx`:
+  - Tabla principal de movimientos.
+  - **Privacidad "Ojo"**: Si el modo privacidad está activo (`!showRealNumbers`), oculta filas que no sean fiscales.
+  - **Filtros**: Búsqueda por texto (monto, nombre, categoría) y por tipo (Ingreso/Egreso).
+  - Formateo de fechas (`date-fns`) y moneda.
+- `FinancialCharts.tsx`:
+  - Gráficos de Torta (Gastos por Categoría) y Barras (Balance).
+  - Reactivo al "Modo Privacidad": Recalcula los gráficos excluyendo datos en negro si se activa el filtro.
+- `StatsCards.tsx`:
+  - Tarjetas de KPI (Dinero en Caja ARS/USD).
+  - Muestra desglose "Fiscal vs Real" si hay discrepancias y el usuario tiene permisos.
 
-- **organizations**: 
-  - `id`, `name`, `slug`, `logo_url`, `primary_color`, `secondary_color`, `status`, `base_maintenance_fee`, `owner_email`, `initial_password`.
-- **profiles**: 
-  - `id` (FK auth.users), `organization_id`, `full_name`, `role`.
-- **transactions**: 
-  - `id`, `organization_id`, `profile_id`, `amount`, `description`, `currency`, `type` ('income'/'expense'), `is_fiscal` (bool), `category_id`, `payee_id`, `transaction_date`.
-- **modules**: 
-  - `key`, `name`, `description`, `monthly_price_adder`, `is_active`.
-- **organization_modules**: 
-  - `organization_id`, `module_key`, `is_enabled`.
-- **categories** / **payees**: 
-  - Tablas auxiliares para clasificación.
+3.4. UTILIDADES DE UI
+- `PrivacyToggle.tsx` (CRÍTICO):
+  - Botón para alternar entre "Vista Fiscal" y "Vista Real".
+  - **Seguridad de UI**: Si el usuario no es dueño (`!canViewRealNumbers`), muestra un candado y bloquea la acción.
+- `ExportButton.tsx`:
+  - Disparador de la generación de PDF (solo fiscal).
 
-8. CONFIGURACIÓN Y UX
----------------------
-- **Estilos Globales**: Tailwind CSS configurado en `globals.css` y `layout.tsx`.
-- **Fuentes**: Uso de `Geist Sans`, `Geist Mono` y **`Revalia`** (Fuente de marca) inyectadas via CSS variables.
-- **Multimoneda**: Soporte explícito visual y lógico para ARS y USD.
-- **Contextos React**:
-  - `ToastContext`: Para notificaciones globales.
-  - `DashboardContext`: Para estado global del dashboard (ej. filtro de privacidad).
+--------------------------------------------------------------------------------
+SECCIÓN 4: LÓGICA DE SERVIDOR (SERVER ACTIONS)
+--------------------------------------------------------------------------------
 
-9. CONCLUSIÓN DEL ANÁLISIS
---------------------------
-El sistema cuenta con una base sólida para un SaaS B2B. Destaca la separación lógica y de seguridad entre "Superadmin" (Gestión del negocio SaaS) y "Usuario Final" (Gestión de su caja). 
-La característica más valiosa identificada es el manejo "Híbrido" de finanzas (Fiscal vs Interno) con mecanismos de seguridad (Privacy Toggle y Exportación Filtrada) que protegen la información sensible del cliente ante terceros (empleados o contadores).
+4.1. GESTIÓN DE ORGANIZACIONES (`create-organization.ts` / `delete-organization.ts`)
+- **Seguridad**: Ambas funciones verifican permisos de Superadmin.
+- `createOrganizationAction`:
+  - Genera password aleatoria temporal (`Math.random`).
+  - Crea usuario en Auth y registro en DB `organizations` usando `supabaseAdmin` (Bypass RLS).
+  - Crea perfil vinculado como `owner`.
+  - Soporta rollback: Si falla la creación de DB, borra el usuario de Auth.
+- `deleteOrganization`:
+  - **Destrucción en Cascada**: Borra manualmente dependencias (audit, turnos, transacciones, servicios, usuarios) antes de borrar la org. Esto previene errores de FK si no estuvieran configurados los `ON DELETE CASCADE`.
+
+4.2. GESTIÓN FINANCIERA (`transaction-actions.ts`)
+- `createTransactionAction`:
+  - Verifica sesión y obtiene `organization_id` del perfil.
+  - Inserta en `transactions`.
+  - Revalida cachés de dashboard.
+- `getDashboardStats.ts`:
+  - **Lógica de Doble Caja**: Itera transacciones y mantiene dos acumuladores paralelos:
+    1. `fiscalBalance`: Suma solo si `is_fiscal === true`.
+    2. `realBalance`: Suma todo.
+  - Retorna estructura separada para ARS y USD.
+
+4.3. APPOINTMENTS (`appointment-actions.ts`)
+- Funciones CRUD para Servicios y Horarios laborales.
+- **Acceso Público**:
+  - `getPublicOrganization(slug)`: Permite renderizar la landing de reservas sin loguearse.
+  - `getBusySlots`: Usa RPC de base de datos para calcular disponibilidad.
+  - `createPublicAppointment`: Permite a pacientes externos agendar citas.
+
+4.4. ADMINISTRACIÓN DE EQUIPO (`admin-user-actions.ts`)
+- `createCompanyUser`: Permite al admin crear usuarios empleados/profesionales.
+- Usa `supabaseAdmin` para crear el auth user y vincularlo a la organización.
+
+--------------------------------------------------------------------------------
+SECCIÓN 5: PANEL DE SUPERADMIN (`/admin`)
+--------------------------------------------------------------------------------
+
+5.1. DASHBOARD PRINCIPAL (`page.tsx`)
+- **KPIs en Tiempo Real**: Muestra "Empresas Activas", "MRR (Monthly Recurring Revenue)" y "Total Usuarios".
+- **Cálculos**: El MRR se calcula iterando sobre todas las empresas activas y sumando `base_maintenance_fee` + precio de módulos adicionales. Esto ocurre en runtime (`companies.ts`), lo cual es aceptable para la escala actual pero podría requerir optimización a futuro.
+
+5.2. GESTIÓN DE EMPRESAS (`companies/`)
+- **Listado (`page.tsx`)**: Tabla con buscador por nombre/email. Muestra estado, fee mensual y accesos directos a editar/borrar.
+- **Creación (`new/page.tsx`)**:
+  - Formulario wizard-like con Zod.
+  - **Auto-Slug**: Genera URL amigable automáticamente del nombre.
+  - **Branding**: Selectores de color (input `type="color"`) y subida de logo.
+  - **Módulos**: Permite activar/desactivar módulos (ej. "Turnos") que impactan en el precio final.
+  - **Creación de Dueño**: Crea automáticamente un usuario en Supabase Auth y retorna la contraseña temporal UNA SOLA VEZ para que el admin la copie.
+- **Edición Detallada (`[id]/edit/page.tsx`)**:
+  - Permite gestionar usuarios internos de esa empresa (Altas/Bajas de empleados).
+  - Configuración de roles: "Owner", "Admin", "Employee".
+  - Flag "Profesional": Marca a un usuario para que aparezca en el turnero público.
+
+--------------------------------------------------------------------------------
+SECCIÓN 6: PANEL DE CLIENTE (`/dashboard`)
+--------------------------------------------------------------------------------
+
+6.1. ESTRUCTURA Y NAVEGACIÓN
+- **Contexto Global**: `DashboardProvider` inyecta la organización y perfil del usuario actual a toda la app.
+- **Diseño**: Layout con sidebar fijo (desktop) o menú hamburguesa (móvil). Los colores se adaptan a la marca del cliente (`var(--brand-primary)`).
+
+6.2. MÓDULO FINANCIERO (CORE)
+- **Doble Contabilidad**:
+  - El sistema distingue entre "Fiscal" (Blanco) y "Real" (Negro) mediante el campo `is_fiscal`.
+  - **Privacy Toggle**: Componente omnipresente en el header. Si está desactivado (default), el sistema FILTRA y ESCONDE cualquier dato con `is_fiscal: false`.
+  - **Seguridad UI**: Solo el rol `owner` tiene permiso para ver los datos reales.
+- **Movimientos**: CRUD completo. Categorización rápida. Multimoneda (ARS/USD).
+- **Reportes**: Generación de PDF limpio (solo fiscal) para enviar al contador.
+
+6.3. MÓDULO DE TURNOS (`appointments/`)
+- **Agenda**: Visualización de lista de turnos (Próximos).
+- **Configuración**:
+  - Definición de Servicios (Nombre, Duración, Precio).
+  - Definición de Horarios de Atención (Lunes a Viernes, rangos horarios).
+- **Link Público**: Botón para abrir la página de reservas externa.
+
+--------------------------------------------------------------------------------
+SECCIÓN 7: MÓDULO PÚBLICO (`/reservar/[slug]`)
+--------------------------------------------------------------------------------
+
+7.1. FLUJO DE RESERVA
+- Página pública (no requiere login). Renderizada desde el servidor (`SSR`) con datos de la organización obtenidos por el `slug`.
+- **Paso 1**: Selección de Servicio.
+- **Paso 2**: Selección de Profesional (o "Cualquiera"). Muestra avatares.
+- **Paso 3**: Selección de Fecha y Hora.
+  - **Lógica de Slots**: Genera huecos cada 30 min (9am a 8pm). Consulta a DB (`getBusySlots`) para deshabilitar los ocupados.
+- **Paso 4**: Datos del Paciente (Nombre, WhatsApp, Email).
+- **Paso 5**: Confirmación.
+
+7.2. DISEÑO Y UX
+- Interfaz limpia "Mobile First".
+- Branding aplicado dinámicamente (colores y logo de la empresa).
+- Animaciones suaves entre pasos (`animate-in slide-in`).
+
+--------------------------------------------------------------------------------
+SECCIÓN 8: CONCLUSIONES Y OBSERVACIONES TÉCNICAS
+--------------------------------------------------------------------------------
+
+8.1. PUNTOS FUERTES
+- **Arquitectura**: Uso correcto de Server Actions para mutaciones y Server Components para data fetching.
+- **Seguridad**:
+  - Auth robusto con Supabase.
+  - RLS (Row Level Security) es la base de la seguridad de datos.
+  - Distinción clara entre Cliente Servidor (cookies) y Cliente Browser.
+- **UX/UI**: Diseño moderno, feedback constante (Toasts), estados de carga (`loading.tsx` o estados locales).
+- **Modelo de Negocio**: La lógica de "Fiscal vs Real" está implementada de forma transversal y segura (no se filtra al cliente si no se solicita).
+
+8.2. ÁREAS DE ATENCIÓN
+- **Tailwind v4**: Al ser una versión muy nueva, verificar compatibilidad de plugins si se agregan más.
+- **Escalabilidad del MRR**: El cálculo en memoria del Dashboard Admin podría ser lento con miles de empresas. Se sugiere mover a una vista materializada de SQL o función RPC a futuro.
+- **Validación de Slots**: La generación de horarios en el frontend público (loop 9-20hs) está hardcodeada en `PublicBookingPage`. Debería leerse dinámicamente de la configuración de horarios (`working_hours`) guardada en DB.
+
+FIN DEL REPORTE
+================================================================================
