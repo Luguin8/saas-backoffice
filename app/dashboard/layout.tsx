@@ -1,44 +1,88 @@
-import { redirect } from 'next/navigation';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import DashboardClientLayout from '@/components/dashboard/DashboardClientLayout';
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase-server' // Usamos el cliente nuevo
+import Sidebar from '@/components/dashboard/Sidebar'
+import MobileHeader from '@/components/dashboard/MobileHeader'
+import { DashboardProvider } from './context/DashboardContext'
+import { ToastProvider } from './context/ToastContext'
 
 export default async function DashboardLayout({
     children,
 }: {
-    children: React.ReactNode;
+    children: React.ReactNode
 }) {
-    const cookieStore = await cookies();
+    const supabase = await createClient()
 
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll() } } }
-    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect('/login');
+    if (authError || !user) {
+        redirect('/login')
+    }
 
+    // Obtener perfil
     const { data: profile } = await supabase
         .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+    if (!profile) {
+        redirect('/login')
+    }
+
+    // Obtener organización y SUS MÓDULOS
+    const { data: organization } = await supabase
+        .from('organizations')
         .select(`
       *,
-      organizations (
-        name, slug, logo_url, primary_color, secondary_color,
-        organization_modules ( module_key, is_enabled )
-      )
+      organization_modules (module_key, is_enabled)
     `)
-        .eq('id', user.id)
-        .single();
+        .eq('id', profile.organization_id)
+        .single()
 
-    if (!profile || !profile.organizations) redirect('/');
+    if (!organization) {
+        // Manejar caso sin organización si fuera necesario
+        redirect('/login')
+    }
 
-    const org = profile.organizations;
-    const activeModules = org.organization_modules?.filter((m: any) => m.is_enabled) || [];
+    // Verificar estado
+    if (organization.status === 'suspended') {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center p-8 bg-white rounded-lg shadow-md">
+                    <h1 className="text-2xl font-bold text-red-600 mb-2">Cuenta Suspendida</h1>
+                    <p className="text-gray-600">Por favor contacte a soporte para regularizar su situación.</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
-        <DashboardClientLayout org={org} profile={profile} activeModules={activeModules}>
-            {children}
-        </DashboardClientLayout>
-    );
+        <ToastProvider>
+            {/* AQUI PASAMOS LOS DATOS AL CONTEXTO */}
+            <DashboardProvider
+                organization={organization}
+                profile={profile}
+                userRole={profile.role}
+            >
+                <div className="flex h-screen bg-slate-50">
+                    {/* Sidebar para Desktop */}
+                    <div className="hidden md:block h-full">
+                        <Sidebar />
+                    </div>
+
+                    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                        {/* Header Móvil */}
+                        <MobileHeader
+                            onOpen={() => { }} // MobileHeader maneja su propio estado o usa un sidebar sheet, pasamos función vacía por compatibilidad si es necesario
+                            org={organization} // AQUI PASAMOS LA ORGANIZACIÓN QUE OBTUVIMOS ARRIBA
+                        />
+                        {/* Contenido Principal con Scroll */}
+                        <main className="flex-1 overflow-y-auto">
+                            {children}
+                        </main>
+                    </div>
+                </div>
+            </DashboardProvider>
+        </ToastProvider>
+    )
 }

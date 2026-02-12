@@ -75,8 +75,8 @@ export default function Sidebar() {
             <div className="p-6 border-b border-slate-100">
                 <CompanyLogo
                     name={organization.name}
-                    logoUrl={organization.logo_url}
-                    color={organization.primary_color}
+                    url={organization.logo_url}
+                // Eliminamos 'color' porque el componente CompanyLogo no lo usa
                 />
             </div>
 
