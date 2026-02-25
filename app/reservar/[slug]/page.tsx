@@ -7,9 +7,10 @@ import {
     getPublicServices,
     getBusySlots,
     createPublicAppointment,
-    getPublicProfessionals
+    getPublicProfessionals,
+    getWorkingHoursPublic
 } from '@/app/actions/appointment-actions'
-import { Calendar, Clock, CheckCircle, User, ChevronRight, MapPin, Phone } from 'lucide-react'
+import { Calendar, Clock, CheckCircle, User, ChevronRight, AlertCircle } from 'lucide-react'
 
 interface Service {
     id: string;
@@ -36,8 +37,10 @@ export default function PublicBookingPage() {
     const [availableSlots, setAvailableSlots] = useState<string[]>([])
     const [loadingSlots, setLoadingSlots] = useState(false)
 
-    const [formData, setFormData] = useState({ name: '', phone: '', email: '' })
+    const [formData, setFormData] = useState({ name: '', phone: '', email: '', dni: '' })
     const [submitting, setSubmitting] = useState(false)
+    const [bookingError, setBookingError] = useState<string | null>(null)
+    const [workingHours, setWorkingHours] = useState<any[]>([])
 
     useEffect(() => {
         async function load() {
@@ -50,9 +53,11 @@ export default function PublicBookingPage() {
                     const srvData = await getPublicServices(orgData.id)
                     setServices(srvData || [])
 
-                    // Cargamos profesionales también
                     const profData = await getPublicProfessionals(orgData.id)
                     setProfessionals(profData || [])
+
+                    const whData = await getWorkingHoursPublic(orgData.id)
+                    setWorkingHours(whData)
                 }
             } catch (error) {
                 console.error("Error cargando datos públicos:", error)
@@ -72,22 +77,26 @@ export default function PublicBookingPage() {
         setLoadingSlots(true)
         const dayStart = `${selectedDate}T00:00:00`
         const dayEnd = `${selectedDate}T23:59:59`
+        const selectedDayOfWeek = new Date(selectedDate + 'T12:00:00').getDay()
 
-        // Generación simple de slots 9-20hs (Idealmente esto vendría de la config de horarios de la empresa)
-        const possibleSlots = []
-        for (let h = 9; h < 20; h++) {
+        // Determinamos rango desde los horarios de la org (fallback 9-20hs si no está configurado)
+        const dayConfig = workingHours.find((wh: any) => wh.day_of_week === selectedDayOfWeek && wh.is_enabled)
+        const startHour = dayConfig ? parseInt(dayConfig.start_time.split(':')[0]) : 9
+        const endHour = dayConfig ? parseInt(dayConfig.end_time.split(':')[0]) : 20
+
+        const possibleSlots: string[] = []
+        for (let h = startHour; h < endHour; h++) {
             possibleSlots.push(`${h.toString().padStart(2, '0')}:00`)
             possibleSlots.push(`${h.toString().padStart(2, '0')}:30`)
         }
 
         const busy = await getBusySlots(org.id, dayStart, dayEnd)
 
+        const now = new Date()
         const free = possibleSlots.filter(slot => {
             const slotTime = new Date(`${selectedDate}T${slot}:00`)
-
+            if (slotTime <= now) return false // No mostrar slots pasados
             const isBusy = busy.some((b: any) => {
-                // Si el turno ocupado es de OTRO profesional, no me bloquea a mí (a menos que el cliente quiera bloquear todo)
-                // Aquí asumimos bloqueo simple por ahora.
                 const busyStart = new Date(b.start_time)
                 const busyEnd = new Date(b.end_time)
                 return slotTime >= busyStart && slotTime < busyEnd
@@ -102,27 +111,33 @@ export default function PublicBookingPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setSubmitting(true)
+        setBookingError(null)
         try {
             if (!selectedService) return;
             const startTime = `${selectedDate}T${selectedTime}:00`
             const endObj = new Date(new Date(startTime).getTime() + selectedService.duration_minutes * 60000)
 
-            await createPublicAppointment({
+            const result = await createPublicAppointment({
                 organization_id: org.id,
                 service_id: selectedService.id,
                 profile_id: selectedProfessional?.id === '1' ? null : selectedProfessional?.id,
                 patient_name: formData.name,
                 patient_email: formData.email,
                 patient_phone: formData.phone,
+                patient_dni: formData.dni || null,
                 start_time: startTime,
                 end_time: endObj.toISOString(),
-                status: 'confirmed' // O 'pending' si quisieras aprobación manual
             })
+
+            if (!result.success) {
+                setBookingError(result.message ?? 'Error al reservar. Intente nuevamente.')
+                return
+            }
 
             setStep(5)
         } catch (error) {
             console.error(error)
-            alert('Error al reservar. Intente nuevamente.')
+            setBookingError('Error al reservar. Por favor intente nuevamente.')
         } finally {
             setSubmitting(false)
         }
@@ -310,16 +325,28 @@ export default function PublicBookingPage() {
                                         value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email (Opcional)</label>
-                                    <input type="email" placeholder="juan@ejemplo.com" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
-                                        value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">DNI <span className="text-slate-400 font-normal normal-case">(identificador único)</span></label>
+                                    <input required type="text" inputMode="numeric" placeholder="Ej: 38456789" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                        value={formData.dni} onChange={e => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '') })} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono / WhatsApp</label>
                                     <input required type="tel" placeholder="Ej: 11 1234 5678" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
                                         value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email <span className="text-slate-400 font-normal normal-case">(Opcional)</span></label>
+                                    <input type="email" placeholder="juan@ejemplo.com" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 outline-none"
+                                        value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                </div>
                             </div>
+
+                            {bookingError && (
+                                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+                                    <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                                    <span>{bookingError}</span>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"

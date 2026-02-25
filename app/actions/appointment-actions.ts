@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
+import type { AppointmentStatus } from '@/lib/appointment-constants'
 
 // --- SERVICIOS ---
 
@@ -87,6 +88,10 @@ export async function saveWorkingHours(organizationId: string, profileId: string
 
 // --- TURNOS (DASHBOARD) ---
 
+// Los tipos y constantes de estado viven en lib/appointment-constants.ts
+// (un 'use server' file no puede exportar objetos, solo async functions)
+export type { AppointmentStatus } from '@/lib/appointment-constants'
+
 export async function getAppointments(organizationId: string) {
     const supabase = await createClient()
     const { data, error } = await supabase
@@ -100,6 +105,18 @@ export async function getAppointments(organizationId: string) {
 
     if (error) throw new Error(error.message)
     return data
+}
+
+export async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('appointments')
+        .update({ status })
+        .eq('id', id)
+
+    if (error) throw new Error(error.message)
+    revalidatePath('/dashboard/appointments')
+    return { success: true }
 }
 
 // --- TURNOS (PÚBLICO) ---
@@ -141,26 +158,59 @@ export async function getBusySlots(organizationId: string, start: string, end: s
     return data || []
 }
 
+// Umbral de sesiones sin pagar antes de bloquear nuevas reservas
+const UNPAID_SESSIONS_BLOCK_THRESHOLD = 4
+
 export async function createPublicAppointment(data: any) {
     const supabase = await createClient()
+
+    // Validación de bloqueo por DNI (sesiones sin abonar)
+    if (data.patient_dni) {
+        const { count } = await supabase
+            .from('appointments')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', data.organization_id)
+            .eq('patient_dni', data.patient_dni)
+            .eq('status', 'pending_payment')
+
+        if ((count ?? 0) >= UNPAID_SESSIONS_BLOCK_THRESHOLD) {
+            return {
+                success: false,
+                blocked: true,
+                message: `Tu cuenta tiene ${count} sesiones pendientes de pago. Por favor, regulariza tu situación antes de reservar un nuevo turno.`
+            }
+        }
+    }
+
     const { error } = await supabase
         .from('appointments')
         .insert({
             organization_id: data.organization_id,
             service_id: data.service_id,
+            profile_id: data.profile_id || null,
             patient_name: data.patient_name,
             patient_email: data.patient_email,
             patient_phone: data.patient_phone,
+            patient_dni: data.patient_dni || null,
             start_time: data.start_time,
             end_time: data.end_time,
-            status: 'confirmed' // Opción A: Confirmación automática
+            status: 'confirmed'
         })
 
     if (error) throw new Error(error.message)
     return { success: true }
 }
 
-// Agregar al final del archivo o junto a los otros getters públicos
+// Endpoint público para obtener horarios de atención (sin auth)
+export async function getWorkingHoursPublic(organizationId: string) {
+    const supabase = await createClient()
+    const { data } = await supabase
+        .from('working_hours')
+        .select('day_of_week, start_time, end_time, is_enabled')
+        .eq('organization_id', organizationId)
+    return data || []
+}
+
 export async function getPublicProfessionals(organizationId: string) {
     const supabase = await createClient()
     const { data, error } = await supabase

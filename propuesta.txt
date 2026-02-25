@@ -1,0 +1,37 @@
+Objetivo: Digitalización y control de flujo de caja y agenda de pacientes.
+1. Resumen Ejecutivo
+La presente propuesta busca implementar un sistema a medida que centralice la
+gestión administrativa del centro. El objetivo es eliminar el registro manual, reducir el
+ausentismo de pacientes y garantizar el registro total de los movimientos de dinero
+(ingresos y egresos).
+2. Módulos del Sistema
+A. Gestión de Turnos (Turnero)
+ Agenda Visual: Calendario interactivo organizado por profesional y consultorio.
+ Registro de Pacientes: Ficha básica con datos de contacto, obra social o
+particular.
+ Control de Estado: Marcación de turnos como "Asistido", "Cancelado" o
+"Ausente, “Pendiente de pago”, “Pago” para generar estadísticas y seguimiento
+de cumplimiento.
+ Posibilidad de alerta: posibilidad de que se bloquee la opción de sacar otro
+turno si cuenta con por ejemplo 4 sesiones sin abonar.
+B. Control Financiero (Caja)
+ Registro de Ingresos: Posibilidad de registrar todos los ingresos de dinero
+comunes a la sociedad.
+ Gestión de Egresos: Registro de gastos fijos (alquiler, servicios, insumos) y
+variables.
+ Cierre de Caja: Reportes diarios, semanales o mensuales para visualizar la
+rentabilidad neta del centro.
+C. Reportes y Análisis
+ Resumen de sesiones realizadas por cada profesional.
+ Balance de ingresos vs. gastos.
+ Registro de cobros de subalquilantes.
+3. Beneficios Inmediatos
+ Ahorro de Tiempo: Automatización de tareas administrativas que hoy se
+realizan por las socias.
+ Orden Administrativo: Claridad total sobre cuánto dinero ingresa y en qué se
+gasta.
+
+ Escalabilidad: El sistema permite agregar nuevos profesionales o servicios sin
+perder el control.
+
+RESPONSABLE DE DESARROLLO Y MANTENIMIENTO: Martín Lugo
